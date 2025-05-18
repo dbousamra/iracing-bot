@@ -44,6 +44,4 @@ FROM base
 # Copy built application
 COPY --from=build /app /app
 
-# Start the server by default, this can be overwritten at runtime
-EXPOSE 3000
-CMD [ "node", "dist/index.js" ]
+CMD ["pnpm", "start"]
