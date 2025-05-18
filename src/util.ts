@@ -1,5 +1,6 @@
 import { REST, Routes } from "discord.js";
 import { commands } from "./commands";
+import "dotenv/config";
 
 export const run = <A>(fn: () => A): A => {
 	return fn();
@@ -23,7 +24,7 @@ export const config = run(() => {
 	};
 });
 
-type DeployCommandsProps = {
+export type DeployCommandsProps = {
 	guildId: string;
 };
 
