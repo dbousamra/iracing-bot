@@ -33,7 +33,7 @@ export const latestRace = (client: IRacingClient): Command => ({
 		if (!interaction.isChatInputCommand()) {
 			return;
 		}
-		const customerId = interaction.options.getNumber("customerId");
+		const customerId = interaction.options.getNumber("customer_id");
 
 		if (!customerId) {
 			await interaction.reply("Customer ID is required");
@@ -50,6 +50,6 @@ export const latestRace = (client: IRacingClient): Command => ({
 export const getCommands = (client: IRacingClient): Record<string, Command> => {
 	return {
 		ping,
-		latestRace: latestRace(client),
+		latest_race: latestRace(client),
 	};
 };

@@ -29,7 +29,7 @@ client.on("interactionCreate", async (interaction) => {
 		const command = commands[commandName as keyof typeof commands];
 
 		console.log(
-			`Executing command ${commandName}, ${interaction.options.data}`,
+			`Executing command ${commandName}, ${JSON.stringify(interaction.options)}`,
 		);
 
 		await command.execute(interaction);
