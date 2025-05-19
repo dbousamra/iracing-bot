@@ -47,7 +47,7 @@ export const latestRace = (client: IRacingClient): Command => ({
 	},
 });
 
-export const getCommands = (client: IRacingClient) => {
+export const getCommands = (client: IRacingClient): Record<string, Command> => {
 	return {
 		ping,
 		latestRace: latestRace(client),

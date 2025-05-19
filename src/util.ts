@@ -1,5 +1,5 @@
 import { REST, Routes } from "discord.js";
-import { getCommands } from "./commands";
+import { type Command, getCommands } from "./commands";
 import "dotenv/config";
 
 export const run = <A>(fn: () => A): A => {
@@ -37,10 +37,11 @@ export const config = run(() => {
 
 export type DeployCommandsProps = {
 	guildId: string;
+	commands: Record<string, Command>;
 };
 
-export async function deployCommands({ guildId }: DeployCommandsProps) {
-	const commandsData = Object.values(getCommands).map(
+export async function deployCommands(props: DeployCommandsProps) {
+	const commandsData = Object.values(props.commands).map(
 		(command) => command.data,
 	);
 
@@ -48,9 +49,10 @@ export async function deployCommands({ guildId }: DeployCommandsProps) {
 
 	try {
 		console.log("Started refreshing application (/) commands.");
+		console.log(commandsData.map((c) => `${c.name} - ${c.description}`));
 
 		await rest.put(
-			Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, guildId),
+			Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, props.guildId),
 			{
 				body: commandsData,
 			},
