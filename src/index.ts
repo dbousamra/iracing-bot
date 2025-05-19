@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import { commands } from "./commands";
+import { IRacingClient } from "./api/iracing/client";
+import { getCommands } from "./commands";
 import { config, deployCommands } from "./util";
 
 const client = new Client({
@@ -9,6 +10,10 @@ const client = new Client({
 		GatewayIntentBits.DirectMessages,
 	],
 });
+
+const commands = getCommands(
+	new IRacingClient(config.IRACING_USERNAME, config.IRACING_PASSWORD),
+);
 
 client.once("ready", () => {
 	console.log("Discord bot is ready! 🤖");
@@ -22,9 +27,11 @@ client.on("interactionCreate", async (interaction) => {
 	if (!interaction.isCommand()) {
 		return;
 	}
+
 	const { commandName } = interaction;
 	if (commands[commandName as keyof typeof commands]) {
-		commands[commandName as keyof typeof commands].execute(interaction);
+		const command = commands[commandName as keyof typeof commands];
+		await command.execute(interaction);
 	}
 });
 
