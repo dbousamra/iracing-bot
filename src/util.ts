@@ -40,7 +40,7 @@ export type DeployCommandsProps = {
 	commands: Record<string, Command>;
 };
 
-export async function deployCommands(props: DeployCommandsProps) {
+export const deployCommands = async (props: DeployCommandsProps) => {
 	const commandsData = Object.values(props.commands).map(
 		(command) => command.data,
 	);
@@ -62,4 +62,13 @@ export async function deployCommands(props: DeployCommandsProps) {
 	} catch (error) {
 		console.error(error);
 	}
+};
+
+export function formatLaptime(laptime: number): string {
+	const microseconds = laptime * 100;
+	const totalMilliseconds = Math.floor(microseconds / 1000);
+	const minutes = Math.floor(totalMilliseconds / 60000);
+	const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
+	const milliseconds = totalMilliseconds % 1000;
+	return `${minutes}:${seconds.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
 }
