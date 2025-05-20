@@ -1,6 +1,6 @@
 import { REST, Routes } from "discord.js";
-import { type Command, getCommands } from "./commands";
 import "dotenv/config";
+import type { Command } from "./commands";
 
 export const run = <A>(fn: () => A): A => {
 	return fn();
