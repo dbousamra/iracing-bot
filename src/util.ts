@@ -92,7 +92,7 @@ export const pollLatestRaces = async (
 			console.log(
 				`Race is within ${pollInterval}ms of now. Sending message...`,
 			);
-			// await options.onLatestRace(race);
+			await options.onLatestRace(race);
 		} else {
 			console.log(`Skipping race for ${customerId} because it's too old`);
 		}
