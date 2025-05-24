@@ -77,12 +77,14 @@ export const pollLatestRaces = async (
 		const race = await getLatestRace(iRacing, { customerId });
 		const raceFinish = new Date(race.endTime);
 		const now = new Date();
-		const isInBounds = raceFinish.getTime() - now.getTime() < pollInterval;
+		const diff = now.getTime() - raceFinish.getTime();
+		const isInBounds = diff < pollInterval;
 
 		console.log(`Found race for ${customerId}.`, {
 			raceFinish,
 			now,
 			isInBounds,
+			diff,
 			race: JSON.stringify(race, null, 2),
 		});
 
@@ -90,7 +92,7 @@ export const pollLatestRaces = async (
 			console.log(
 				`Race is within ${pollInterval}ms of now. Sending message...`,
 			);
-			await options.onLatestRace(race);
+			// await options.onLatestRace(race);
 		} else {
 			console.log(`Skipping race for ${customerId} because it's too old`);
 		}
