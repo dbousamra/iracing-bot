@@ -1,9 +1,10 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import IRacingSDK from "iracing-web-sdk";
 import { getCommands } from "./commands";
-import { config } from "./util";
+import { config } from "./config";
+import { createRaceEmbed, pollLatestRaces, run } from "./util";
 
-const run = async () => {
+run(async () => {
 	const iRacingClient = new IRacingSDK(
 		config.IRACING_USERNAME,
 		config.IRACING_PASSWORD,
@@ -42,6 +43,26 @@ const run = async () => {
 			await command.execute(interaction);
 		}
 	});
-};
 
-run();
+	const poll = async () => {
+		await pollLatestRaces(iRacingClient, {
+			trackedUsers: config.TRACKED_USERS,
+			pollInterval: config.POLL_INTERVAL,
+			onLatestRace: async (race) => {
+				const channel = await discordClient.channels.fetch(
+					config.DISCORD_CHANNEL_ID,
+				);
+
+				if (channel?.isSendable()) {
+					const embed = createRaceEmbed(race);
+					if (channel.isSendable()) {
+						await channel.send({ embeds: [embed] });
+					}
+				}
+			},
+		});
+	};
+
+	setInterval(poll, config.POLL_INTERVAL);
+	poll();
+});

@@ -1,46 +1,17 @@
-import { REST, Routes } from "discord.js";
-import "dotenv/config";
+import { EmbedBuilder, REST, Routes } from "discord.js";
+import type IRacingSDK from "iracing-web-sdk";
 import type { Command } from "./commands";
+import { config } from "./config";
+import { type GetLatestRaceResponse, getLatestRace } from "./iracing";
 
-export const run = <A>(fn: () => A): A => {
+export function run<A>(fn: () => A): A {
 	return fn();
-};
+}
 
-export const config = run(() => {
-	const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-	if (!DISCORD_TOKEN) {
-		throw new Error("DISCORD_TOKEN is not set");
-	}
-
-	const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
-	if (!DISCORD_CLIENT_ID) {
-		throw new Error("DISCORD_CLIENT_ID is not set");
-	}
-
-	const IRACING_USERNAME = process.env.IRACING_USERNAME;
-	if (!IRACING_USERNAME) {
-		throw new Error("IRACING_USERNAME is not set");
-	}
-
-	const IRACING_PASSWORD = process.env.IRACING_PASSWORD;
-	if (!IRACING_PASSWORD) {
-		throw new Error("IRACING_PASSWORD is not set");
-	}
-
-	return {
-		DISCORD_TOKEN,
-		DISCORD_CLIENT_ID,
-		IRACING_USERNAME,
-		IRACING_PASSWORD,
-	};
-});
-
-export type DeployCommandsProps = {
+export const deployCommands = async (props: {
 	guildId: string;
 	commands: Record<string, Command>;
-};
-
-export const deployCommands = async (props: DeployCommandsProps) => {
+}) => {
 	const commandsData = Object.values(props.commands).map(
 		(command) => command.data,
 	);
@@ -64,11 +35,63 @@ export const deployCommands = async (props: DeployCommandsProps) => {
 	}
 };
 
-export function formatLaptime(laptime: number): string {
-	const microseconds = laptime * 100;
-	const totalMilliseconds = Math.floor(microseconds / 1000);
-	const minutes = Math.floor(totalMilliseconds / 60000);
-	const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
-	const milliseconds = totalMilliseconds % 1000;
-	return `${minutes}:${seconds.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
-}
+export const createRaceEmbed = (race: GetLatestRaceResponse) => {
+	return new EmbedBuilder()
+		.setTitle(`${race.driverName}'s race results`)
+		.setColor(race.color)
+		.addFields(
+			{
+				name: "📋 • __Details__",
+				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\``,
+			},
+			{
+				name: "📊 • __Position__",
+				value: `Start » \`${race.startPos}/${race.entries}\`\nFinish » \`${race.finishPos}/${race.entries}\`\n`,
+			},
+			{
+				name: "📉 • __Statistics__",
+				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nSOF » \`${race.sof}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
+			},
+			{
+				name: "🏆 • __Ratings__",
+				value: `iRating » \`${race.newIrating}\` **(${race.iratingChange})**\nSafety » \`${race.newSubLevel}\` **(${race.subLevelChange})**`,
+			},
+			{
+				name: "🔗 • Link",
+				value: `[View on iRacing.com](https://members-ng.iracing.com/web/racing/results-stats/results?subsessionid=${race.race.subsession_id})`,
+			},
+		);
+};
+
+export const pollLatestRaces = async (
+	iRacing: IRacingSDK,
+	options: {
+		trackedUsers: number[];
+		pollInterval: number;
+		onLatestRace: (race: GetLatestRaceResponse) => Promise<void>;
+	},
+) => {
+	const { trackedUsers, pollInterval } = options;
+
+	const start = new Date();
+	console.log(`Starting to poll latest races at ${start}`);
+
+	for (const customerId of trackedUsers) {
+		const race = await getLatestRace(iRacing, { customerId });
+		const raceFinish = new Date(race.endTime).getTime();
+		console.log(`Found race for ${customerId} at ${raceFinish}.`);
+		console.log(JSON.stringify(race, null, 2));
+
+		if (start.valueOf() - raceFinish < pollInterval) {
+			console.log(
+				`Race is within ${pollInterval}ms of now. Sending message...`,
+			);
+			await options.onLatestRace(race);
+		} else {
+			console.log(`Skipping race for ${customerId} because it's too old`);
+		}
+	}
+
+	const end = new Date();
+	console.log(`Finished polling latest races at ${end}`);
+};

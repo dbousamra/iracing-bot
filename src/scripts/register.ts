@@ -1,6 +1,7 @@
 import IRacingSDK from "iracing-web-sdk";
 import { getCommands } from "../commands";
-import { config, deployCommands } from "../util";
+import { config } from "../config";
+import { deployCommands } from "../util";
 
 const run = async () => {
 	const iRacingClient = new IRacingSDK(
