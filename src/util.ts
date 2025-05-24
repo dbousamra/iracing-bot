@@ -73,16 +73,20 @@ export const pollLatestRaces = async (
 ) => {
 	const { trackedUsers, pollInterval } = options;
 
-	const start = new Date();
-	console.log(`Starting to poll latest races at ${start}`);
-
 	for (const customerId of trackedUsers) {
 		const race = await getLatestRace(iRacing, { customerId });
-		const raceFinish = new Date(race.endTime).getTime();
-		console.log(`Found race for ${customerId} at ${raceFinish}.`);
-		console.log(JSON.stringify(race, null, 2));
+		const raceFinish = new Date(race.endTime);
+		const now = new Date();
+		const isInBounds = raceFinish.getTime() - now.getTime() < pollInterval;
 
-		if (start.valueOf() - raceFinish < pollInterval) {
+		console.log(`Found race for ${customerId}.`, {
+			raceFinish,
+			now,
+			isInBounds,
+			race: JSON.stringify(race, null, 2),
+		});
+
+		if (isInBounds) {
 			console.log(
 				`Race is within ${pollInterval}ms of now. Sending message...`,
 			);
@@ -91,7 +95,4 @@ export const pollLatestRaces = async (
 			console.log(`Skipping race for ${customerId} because it's too old`);
 		}
 	}
-
-	const end = new Date();
-	console.log(`Finished polling latest races at ${end}`);
 };
