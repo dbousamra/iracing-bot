@@ -2,7 +2,7 @@ import { Client, GatewayIntentBits } from "discord.js";
 import IRacingSDK from "iracing-web-sdk";
 import { getCommands } from "./commands";
 import { config } from "./config";
-import { createRaceEmbed, pollLatestRaces, run } from "./util";
+import { createRaceEmbed, log, pollLatestRaces, run } from "./util";
 
 run(async () => {
 	const iRacingClient = new IRacingSDK(
@@ -56,9 +56,7 @@ run(async () => {
 		if (commands[commandName as keyof typeof commands]) {
 			const command = commands[commandName as keyof typeof commands];
 
-			console.log(
-				`Executing command ${commandName}, ${JSON.stringify(interaction.options)}`,
-			);
+			log(`Executing command ${commandName}`, { options: interaction.options });
 
 			await command.execute(interaction);
 		}

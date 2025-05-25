@@ -8,6 +8,18 @@ export function run<A>(fn: () => A): A {
 	return fn();
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: No need to type this
+export const log = (message: string, payload?: any) => {
+	console.log(
+		JSON.stringify({
+			level: "info",
+			timestamp: new Date().toISOString(),
+			message,
+			payload,
+		}),
+	);
+};
+
 export const deployCommands = async (props: {
 	guildId: string;
 	commands: Record<string, Command>;
@@ -19,8 +31,10 @@ export const deployCommands = async (props: {
 	const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
 
 	try {
-		console.log("Started refreshing application (/) commands.");
-		console.log(commandsData.map((c) => `${c.name} - ${c.description}`));
+		log(
+			"Started refreshing application (/) commands.",
+			commandsData.map((c) => `${c.name} - ${c.description}`),
+		);
 
 		await rest.put(
 			Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, props.guildId),
@@ -29,7 +43,7 @@ export const deployCommands = async (props: {
 			},
 		);
 
-		console.log("Successfully reloaded application (/) commands.");
+		log("Successfully reloaded application (/) commands.");
 	} catch (error) {
 		console.error(error);
 	}
@@ -80,7 +94,7 @@ export const pollLatestRaces = async (
 		const diff = now.getTime() - raceFinish.getTime();
 		const isInBounds = diff < pollInterval;
 
-		console.log(`Found race for ${customerId}.`, {
+		log(`Found race for ${customerId}.`, {
 			raceFinish,
 			now,
 			isInBounds,
@@ -89,12 +103,10 @@ export const pollLatestRaces = async (
 		});
 
 		if (isInBounds) {
-			console.log(
-				`Race is within ${pollInterval}ms of now. Sending message...`,
-			);
+			log(`Race is within ${pollInterval}ms of now. Sending message...`);
 			await options.onLatestRace(race);
 		} else {
-			console.log(`Skipping race for ${customerId} because it's too old`);
+			log(`Skipping race for ${customerId} because it's too old`);
 		}
 	}
 };
