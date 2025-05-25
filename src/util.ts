@@ -99,7 +99,7 @@ export const pollLatestRaces = async (
 			now,
 			isInBounds,
 			diff,
-			race: JSON.stringify(race, null, 2),
+			race,
 		});
 
 		if (isInBounds) {
