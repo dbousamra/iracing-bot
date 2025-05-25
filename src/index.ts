@@ -43,7 +43,6 @@ run(async () => {
 	discordClient.login(config.DISCORD_TOKEN);
 
 	discordClient.once("ready", async () => {
-		console.log("Discord bot is ready! 🤖");
 		setInterval(poll, config.POLL_INTERVAL);
 		poll();
 	});
