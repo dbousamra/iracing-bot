@@ -21,29 +21,6 @@ run(async () => {
 		],
 	});
 
-	discordClient.login(config.DISCORD_TOKEN);
-
-	discordClient.once("ready", () => {
-		console.log("Discord bot is ready! 🤖");
-	});
-
-	discordClient.on("interactionCreate", async (interaction) => {
-		if (!interaction.isCommand()) {
-			return;
-		}
-
-		const { commandName } = interaction;
-		if (commands[commandName as keyof typeof commands]) {
-			const command = commands[commandName as keyof typeof commands];
-
-			console.log(
-				`Executing command ${commandName}, ${JSON.stringify(interaction.options)}`,
-			);
-
-			await command.execute(interaction);
-		}
-	});
-
 	const poll = async () => {
 		await pollLatestRaces(iRacingClient, {
 			trackedUsers: config.TRACKED_USERS,
@@ -63,6 +40,28 @@ run(async () => {
 		});
 	};
 
-	setInterval(poll, config.POLL_INTERVAL);
-	poll();
+	discordClient.login(config.DISCORD_TOKEN);
+
+	discordClient.once("ready", async () => {
+		console.log("Discord bot is ready! 🤖");
+		setInterval(poll, config.POLL_INTERVAL);
+		poll();
+	});
+
+	discordClient.on("interactionCreate", async (interaction) => {
+		if (!interaction.isCommand()) {
+			return;
+		}
+
+		const { commandName } = interaction;
+		if (commands[commandName as keyof typeof commands]) {
+			const command = commands[commandName as keyof typeof commands];
+
+			console.log(
+				`Executing command ${commandName}, ${JSON.stringify(interaction.options)}`,
+			);
+
+			await command.execute(interaction);
+		}
+	});
 });

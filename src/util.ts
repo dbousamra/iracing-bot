@@ -87,6 +87,7 @@ export const pollLatestRaces = async (
 			diff,
 			race: JSON.stringify(race, null, 2),
 		});
+		await options.onLatestRace(race);
 
 		if (isInBounds) {
 			console.log(
