@@ -1,8 +1,13 @@
 import { EmbedBuilder, REST, Routes } from "discord.js";
 import type IRacingSDK from "iracing-web-sdk";
+import pino from "pino";
 import type { Command } from "./commands";
 import { config } from "./config";
 import { type GetLatestRaceResponse, getLatestRace } from "./iracing";
+
+const logger = pino({
+	level: "info",
+});
 
 export function run<A>(fn: () => A): A {
 	return fn();
@@ -10,14 +15,7 @@ export function run<A>(fn: () => A): A {
 
 // biome-ignore lint/suspicious/noExplicitAny: No need to type this
 export const log = (message: string, payload?: any) => {
-	console.log(
-		JSON.stringify({
-			level: "info",
-			timestamp: new Date().toISOString(),
-			message,
-			payload,
-		}),
-	);
+	logger.info(payload, message);
 };
 
 export const deployCommands = async (props: {
