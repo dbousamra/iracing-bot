@@ -93,10 +93,6 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 			},
 		)
 		.setTimestamp(new Date(race.race.session_start_time));
-	// .setFooter({
-	// 	text: "Some footer text here",
-	// 	iconURL: "https://i.imgur.com/AfFp7pu.png",
-	// });
 };
 
 export const pollLatestRaces = async (
@@ -112,13 +108,18 @@ export const pollLatestRaces = async (
 		const race = await getLatestRace(iRacing, { customerId });
 
 		await withJsonFile(async (data: Record<string, number[]>) => {
+			console.log(data);
+
 			const customerRaces = data[customerId] || [];
 			const subsessionId = race.race.subsession_id;
 
 			if (customerRaces.includes(subsessionId)) {
-				log(`Skipping race for ${customerId} because it's already been sent.`, {
-					subsessionId,
-				});
+				log(
+					`Skipping race ${subsessionId} for ${customerId} because it's already been sent.`,
+					{
+						subsessionId,
+					},
+				);
 
 				return data;
 			}
