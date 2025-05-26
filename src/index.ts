@@ -46,8 +46,7 @@ run(async () => {
 
 	discordClient.once("ready", async () => {
 		log("Discord client ready");
-
-		// setInterval(poll, config.POLL_INTERVAL);
+		setInterval(poll, config.POLL_INTERVAL);
 		poll();
 	});
 
