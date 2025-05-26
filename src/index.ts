@@ -5,6 +5,9 @@ import { config } from "./config";
 import { createRaceEmbed, log, pollLatestRaces, run } from "./util";
 
 run(async () => {
+	// turning off console logs because the iracingSDK logs a lot of stuff
+	console.log = () => {};
+
 	const iRacingClient = new IRacingSDK(
 		config.IRACING_USERNAME,
 		config.IRACING_PASSWORD,
@@ -24,7 +27,6 @@ run(async () => {
 	const poll = async () => {
 		await pollLatestRaces(iRacingClient, {
 			trackedUsers: config.TRACKED_USERS,
-			pollInterval: config.POLL_INTERVAL,
 			onLatestRace: async (race) => {
 				const channel = await discordClient.channels.fetch(
 					config.DISCORD_CHANNEL_ID,
@@ -44,7 +46,8 @@ run(async () => {
 
 	discordClient.once("ready", async () => {
 		log("Discord client ready");
-		setInterval(poll, config.POLL_INTERVAL);
+
+		// setInterval(poll, config.POLL_INTERVAL);
 		poll();
 	});
 
@@ -56,7 +59,6 @@ run(async () => {
 		const { commandName } = interaction;
 		if (commands[commandName as keyof typeof commands]) {
 			const command = commands[commandName as keyof typeof commands];
-
 			log(`Executing command ${commandName}`, { options: interaction.options });
 
 			await command.execute(interaction);

@@ -27,7 +27,12 @@ export const config = run(() => {
 		throw new Error("IRACING_PASSWORD is not set");
 	}
 
-	const TRACKED_USERS = [404007];
+	const DB_PATH = process.env.DB_PATH;
+	if (!DB_PATH) {
+		throw new Error("DB_PATH is not set");
+	}
+
+	const TRACKED_USERS = [404007, 691855];
 	const POLL_INTERVAL = 1000 * 60 * 5;
 
 	return {
@@ -36,6 +41,7 @@ export const config = run(() => {
 		DISCORD_CHANNEL_ID,
 		IRACING_USERNAME,
 		IRACING_PASSWORD,
+		DB_PATH,
 		POLL_INTERVAL,
 		TRACKED_USERS,
 	};

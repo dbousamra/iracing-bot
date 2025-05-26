@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { EmbedBuilder, REST, Routes } from "discord.js";
 import type IRacingSDK from "iracing-web-sdk";
 import pino from "pino";
@@ -16,6 +17,24 @@ export function run<A>(fn: () => A): A {
 // biome-ignore lint/suspicious/noExplicitAny: No need to type this
 export const log = (message: string, payload?: any) => {
 	logger.info(payload, message);
+};
+
+export const withJsonFile = async <T>(
+	fn: (data: T) => Promise<T>,
+): Promise<void> => {
+	try {
+		const content = await fs.promises.readFile(config.DB_PATH, "utf-8");
+		const data = JSON.parse(content);
+		const result = await fn(data);
+		if (result) {
+			await fs.promises.writeFile(
+				config.DB_PATH,
+				JSON.stringify(result, null, 2),
+			);
+		}
+	} catch (err) {
+		await fs.promises.writeFile(config.DB_PATH, JSON.stringify({}, null, 2));
+	}
 };
 
 export const deployCommands = async (props: {
@@ -72,39 +91,48 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 				name: "🔗 • Link",
 				value: `[View on iRacing.com](https://members-ng.iracing.com/web/racing/results-stats/results?subsessionid=${race.race.subsession_id})`,
 			},
-		);
+		)
+		.setTimestamp(new Date(race.race.session_start_time));
+	// .setFooter({
+	// 	text: "Some footer text here",
+	// 	iconURL: "https://i.imgur.com/AfFp7pu.png",
+	// });
 };
 
 export const pollLatestRaces = async (
 	iRacing: IRacingSDK,
 	options: {
 		trackedUsers: number[];
-		pollInterval: number;
 		onLatestRace: (race: GetLatestRaceResponse) => Promise<void>;
 	},
 ) => {
-	const { trackedUsers, pollInterval } = options;
+	const { trackedUsers } = options;
 
 	for (const customerId of trackedUsers) {
 		const race = await getLatestRace(iRacing, { customerId });
-		const raceFinish = new Date(race.endTime);
-		const now = new Date();
-		const diff = now.getTime() - raceFinish.getTime();
-		const isInBounds = diff < pollInterval;
 
-		log(`Found race for ${customerId}.`, {
-			raceFinish,
-			now,
-			isInBounds,
-			diff,
-			race,
-		});
+		await withJsonFile(async (data: Record<string, number[]>) => {
+			const customerRaces = data[customerId] || [];
+			const subsessionId = race.race.subsession_id;
 
-		if (isInBounds) {
-			log(`Race is within ${pollInterval}ms of now. Sending message...`);
+			if (customerRaces.includes(subsessionId)) {
+				log(`Skipping race for ${customerId} because it's already been sent.`, {
+					subsessionId,
+				});
+
+				return data;
+			}
+
+			customerRaces.push(subsessionId);
+			data[customerId] = customerRaces;
+
+			log(`Found new race for ${customerId}.`, {
+				subsessionId,
+			});
+
 			await options.onLatestRace(race);
-		} else {
-			log(`Skipping race for ${customerId} because it's too old`);
-		}
+
+			return data;
+		});
 	}
 };
