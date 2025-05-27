@@ -33,16 +33,16 @@ run(async () => {
 			trackedUsers: config.TRACKED_USERS,
 			onLatestRace: async (race) => {
 				log("Sending a message");
-				const channel = await discordClient.channels.fetch(
-					config.DISCORD_CHANNEL_ID,
-				);
+				// const channel = await discordClient.channels.fetch(
+				// 	config.DISCORD_CHANNEL_ID,
+				// );
 
-				if (channel?.isSendable()) {
-					const embed = createRaceEmbed(race);
-					if (channel.isSendable()) {
-						await channel.send({ embeds: [embed] });
-					}
-				}
+				// if (channel?.isSendable()) {
+				// 	const embed = createRaceEmbed(race);
+				// 	if (channel.isSendable()) {
+				// 		await channel.send({ embeds: [embed] });
+				// 	}
+				// }
 			},
 		});
 	};
@@ -52,8 +52,7 @@ run(async () => {
 	discordClient.once("ready", async () => {
 		log("Discord client ready");
 
-		log("TrackedUsers", config.TRACKED_USERS);
-		log("Poll interval", config.POLL_INTERVAL);
+		log("config", JSON.stringify(config));
 
 		setInterval(poll, config.POLL_INTERVAL);
 		poll();
