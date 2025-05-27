@@ -28,14 +28,23 @@ export const getLatestRace = async (
 		subsession_id: race.subsession_id,
 	});
 
-	const sessionResults = results.session_results.find(
+	const raceSession = results.session_results.find(
 		(res) => res.simsession_name === "RACE",
 	);
-	const sessionResult = sessionResults?.results.find(
+	const qualiSession = results.session_results.find(
+		(res) => res.simsession_name === "QUALIFY",
+	);
+
+	const raceSessionResult = raceSession?.results.find(
 		(res) => res.cust_id === customerId,
 	);
+
+	const qualiSessionResult = qualiSession?.results.find(
+		(res) => res.cust_id === customerId,
+	);
+
 	const endTime = results.end_time;
-	const entries = sessionResults?.results.length ?? 0;
+	const entries = raceSession?.results.length ?? 0;
 	const driverName = customer.member_info.display_name;
 	const startPos = race.start_position;
 	const finishPos = race.finish_position;
@@ -50,10 +59,11 @@ export const getLatestRace = async (
 	const sof = race.strength_of_field;
 	const trackName = race.track.track_name;
 	const laps = race.laps;
-	const averageLapTime = formatLaptime(sessionResult?.average_lap ?? 1);
-	const bestLapTime = formatLaptime(sessionResult?.best_lap_time ?? 1);
-	const qualifyingTime =
-		race.qualifying_time > 0 ? formatLaptime(race.qualifying_time) : "No time";
+	const averageLapTime = formatLaptime(raceSessionResult?.average_lap ?? 1);
+	const bestLapTime = formatLaptime(raceSessionResult?.best_lap_time ?? 1);
+	const qualifyingTime = qualiSessionResult
+		? formatLaptime(qualiSessionResult.best_qual_lap_time)
+		: "No time";
 	const car = results.car_classes.find(
 		(c) => c.car_class_id === race.car_class_id,
 	);

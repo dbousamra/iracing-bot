@@ -59,7 +59,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 			},
 			{
 				name: "📊 • __Position__",
-				value: `Start » \`${race.startPos}/${race.entries}\`\nFinish » \`${race.finishPos}/${race.entries}\`\n`,
+				value: `Start » \`${race.startPos}/${race.entries}\`\nFinish » \`${race.finishPos}/${race.entries}\``,
 			},
 			{
 				name: "📉 • __Statistics__",
