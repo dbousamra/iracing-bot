@@ -51,6 +51,10 @@ run(async () => {
 
 	discordClient.once("ready", async () => {
 		log("Discord client ready");
+
+		log("TrackedUsers", config.TRACKED_USERS);
+		log("Poll interval", config.POLL_INTERVAL);
+
 		setInterval(poll, config.POLL_INTERVAL);
 		poll();
 	});

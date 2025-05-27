@@ -87,8 +87,6 @@ export const pollLatestRaces = async (
 ) => {
 	const { trackedUsers } = options;
 
-	log("TrackedUsers", trackedUsers);
-
 	for (const trackedUser of trackedUsers) {
 		const customerId = Number(trackedUser.customerId);
 		const race = await getLatestRace(iRacing, { customerId });
