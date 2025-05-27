@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { EmbedBuilder, REST, Routes } from "discord.js";
 import type IRacingSDK from "iracing-web-sdk";
 import pino from "pino";
@@ -22,18 +23,23 @@ export const log = (message: string, payload?: any) => {
 export const withJsonFile = async <T>(
 	fn: (data: T) => Promise<T>,
 ): Promise<void> => {
-	try {
-		const content = await fs.promises.readFile(config.DB_PATH, "utf-8");
-		const data = JSON.parse(content);
-		const result = await fn(data);
-		if (result) {
-			await fs.promises.writeFile(
-				config.DB_PATH,
-				JSON.stringify(result, null, 2),
-			);
-		}
-	} catch (err) {
-		await fs.promises.writeFile(config.DB_PATH, JSON.stringify({}, null, 2));
+	const fullPath = path.join(config.DB_PATH, "db.json");
+
+	// create the directory if it doesn't exist
+	await fs.promises.stat(config.DB_PATH).catch(() => {
+		return fs.promises.mkdir(config.DB_PATH);
+	});
+
+	// create the file if it doesn't exist
+	await fs.promises.stat(fullPath).catch(() => {
+		return fs.promises.writeFile(fullPath, JSON.stringify({}, null, 2));
+	});
+
+	const content = await fs.promises.readFile(fullPath, "utf-8");
+	const data = JSON.parse(content);
+	const result = await fn(data);
+	if (result) {
+		await fs.promises.writeFile(fullPath, JSON.stringify(result, null, 2));
 	}
 };
 
@@ -108,8 +114,6 @@ export const pollLatestRaces = async (
 		const race = await getLatestRace(iRacing, { customerId });
 
 		await withJsonFile(async (data: Record<string, number[]>) => {
-			console.log(data);
-
 			const customerRaces = data[customerId] || [];
 			const subsessionId = race.race.subsession_id;
 
