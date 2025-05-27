@@ -1,10 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
 import { EmbedBuilder, REST, Routes } from "discord.js";
 import type IRacingSDK from "iracing-web-sdk";
 import pino from "pino";
 import type { Command } from "./commands";
 import { config } from "./config";
+import type { Db } from "./db";
 import { type GetLatestRaceResponse, getLatestRace } from "./iracing";
 
 const logger = pino({
@@ -18,29 +17,6 @@ export function run<A>(fn: () => A): A {
 // biome-ignore lint/suspicious/noExplicitAny: No need to type this
 export const log = (message: string, payload?: any) => {
 	logger.info(payload, message);
-};
-
-export const withJsonFile = async <T>(
-	fn: (data: T) => Promise<T>,
-): Promise<void> => {
-	const fullPath = path.join(config.DB_PATH, "db.json");
-
-	// create the directory if it doesn't exist
-	await fs.promises.stat(config.DB_PATH).catch(() => {
-		return fs.promises.mkdir(config.DB_PATH);
-	});
-
-	// create the file if it doesn't exist
-	await fs.promises.stat(fullPath).catch(() => {
-		return fs.promises.writeFile(fullPath, JSON.stringify({}, null, 2));
-	});
-
-	const content = await fs.promises.readFile(fullPath, "utf-8");
-	const data = JSON.parse(content);
-	const result = await fn(data);
-	if (result) {
-		await fs.promises.writeFile(fullPath, JSON.stringify(result, null, 2));
-	}
 };
 
 export const deployCommands = async (props: {
@@ -103,6 +79,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 
 export const pollLatestRaces = async (
 	iRacing: IRacingSDK,
+	db: Db,
 	options: {
 		trackedUsers: number[];
 		onLatestRace: (race: GetLatestRaceResponse) => Promise<void>;
@@ -112,32 +89,20 @@ export const pollLatestRaces = async (
 
 	for (const customerId of trackedUsers) {
 		const race = await getLatestRace(iRacing, { customerId });
+		const subsessionId = race.race.subsession_id;
 
-		await withJsonFile(async (data: Record<string, number[]>) => {
-			const customerRaces = data[customerId] || [];
-			const subsessionId = race.race.subsession_id;
+		const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
 
-			if (customerRaces.includes(subsessionId)) {
-				log(
-					`Skipping race ${subsessionId} for ${customerId} because it's already been sent.`,
-					{
-						subsessionId,
-					},
-				);
+		if (hasBeenSeen) {
+			log(
+				`Skipping race ${subsessionId} for ${customerId} because it's already been sent.`,
+				{ subsessionId },
+			);
+			continue;
+		}
 
-				return data;
-			}
-
-			customerRaces.push(subsessionId);
-			data[customerId] = customerRaces;
-
-			log(`Found new race for ${customerId}.`, {
-				subsessionId,
-			});
-
-			await options.onLatestRace(race);
-
-			return data;
-		});
+		await db.addCustomerRace(customerId, subsessionId);
+		log(`Found new race for ${customerId}.`, { subsessionId });
+		await options.onLatestRace(race);
 	}
 };

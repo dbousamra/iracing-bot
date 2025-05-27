@@ -2,11 +2,15 @@ import { Client, GatewayIntentBits } from "discord.js";
 import IRacingSDK from "iracing-web-sdk";
 import { getCommands } from "./commands";
 import { config } from "./config";
+import { Db } from "./db";
 import { createRaceEmbed, log, pollLatestRaces, run } from "./util";
 
 run(async () => {
 	// turning off console logs because the iracingSDK logs a lot of stuff
 	console.log = () => {};
+
+	const db = new Db(config.DB_PATH);
+	await db.init();
 
 	const iRacingClient = new IRacingSDK(
 		config.IRACING_USERNAME,
@@ -25,7 +29,7 @@ run(async () => {
 	});
 
 	const poll = async () => {
-		await pollLatestRaces(iRacingClient, {
+		await pollLatestRaces(iRacingClient, db, {
 			trackedUsers: config.TRACKED_USERS,
 			onLatestRace: async (race) => {
 				log("Sending a message");
@@ -36,7 +40,7 @@ run(async () => {
 				if (channel?.isSendable()) {
 					const embed = createRaceEmbed(race);
 					if (channel.isSendable()) {
-						await channel.send({ embeds: [embed] });
+						// await channel.send({ embeds: [embed] });
 					}
 				}
 			},
