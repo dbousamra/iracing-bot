@@ -1,6 +1,12 @@
 import "dotenv/config";
 import { run } from "./util";
 
+export type TrackedUser = {
+	name: string;
+	discordId: string;
+	customerId: string;
+};
+
 export const config = run(() => {
 	const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 	if (!DISCORD_TOKEN) {
@@ -32,14 +38,27 @@ export const config = run(() => {
 		throw new Error("DB_PATH is not set");
 	}
 
-	const TRACKED_USERS = process.env.TRACKED_USERS?.split(",").map(Number);
-	if (!TRACKED_USERS) {
-		throw new Error("TRACKED_USERS is not set");
-	}
-
 	const POLL_INTERVAL = Number.parseInt(
 		process.env.POLL_INTERVAL ?? (60 * 1000 * 5).toString(),
 	);
+
+	const TRACKED_USERS: TrackedUser[] = [
+		{
+			name: "Dom",
+			discordId: "295093140501823488",
+			customerId: "404007",
+		},
+		{
+			name: "Michael",
+			discordId: "449544946823725067",
+			customerId: "793206",
+		},
+		{
+			name: "Liam",
+			discordId: "137891685995642880",
+			customerId: "1230088",
+		},
+	];
 
 	return {
 		DISCORD_TOKEN,

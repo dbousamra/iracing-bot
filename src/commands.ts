@@ -4,6 +4,7 @@ import {
 	type SlashCommandOptionsOnlyBuilder,
 } from "discord.js";
 import type IRacingSDK from "iracing-web-sdk";
+import { config } from "./config";
 import { getLatestRace } from "./iracing";
 import { createRaceEmbed } from "./util";
 
@@ -25,21 +26,31 @@ export const latestRace = (iRacing: IRacingSDK): Command => ({
 	data: new SlashCommandBuilder()
 		.setName("latest_race")
 		.setDescription("Get the latest race for a member")
-		.addNumberOption((option) =>
+		.addUserOption((option) =>
 			option
-				.setName("customer_id")
-				.setDescription("The customer ID of the member")
+				.setName("user")
+				.setDescription("The user to get latest race for")
 				.setRequired(true),
 		),
+
 	execute: async (interaction: CommandInteraction): Promise<void> => {
 		if (!interaction.isChatInputCommand()) {
 			return;
 		}
 
-		const customerId = interaction.options.getNumber("customer_id");
+		const user = interaction.options.getUser("user");
 
-		if (!customerId) {
-			await interaction.reply("Customer ID is required");
+		if (!user) {
+			await interaction.reply("User is required");
+			return;
+		}
+
+		const trackedUser = config.TRACKED_USERS.find(
+			(trackedUser) => trackedUser.discordId === user.id,
+		);
+
+		if (!trackedUser) {
+			await interaction.reply("Could not find user in tracked users. Ask dom");
 			return;
 		}
 
@@ -47,6 +58,7 @@ export const latestRace = (iRacing: IRacingSDK): Command => ({
 		await interaction.deferReply();
 
 		try {
+			const customerId = Number(trackedUser.customerId);
 			const latestRace = await getLatestRace(iRacing, {
 				customerId,
 			});

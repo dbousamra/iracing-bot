@@ -40,7 +40,7 @@ run(async () => {
 				if (channel?.isSendable()) {
 					const embed = createRaceEmbed(race);
 					if (channel.isSendable()) {
-						// await channel.send({ embeds: [embed] });
+						await channel.send({ embeds: [embed] });
 					}
 				}
 			},

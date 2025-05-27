@@ -2,7 +2,7 @@ import { EmbedBuilder, REST, Routes } from "discord.js";
 import type IRacingSDK from "iracing-web-sdk";
 import pino from "pino";
 import type { Command } from "./commands";
-import { config } from "./config";
+import { type TrackedUser, config } from "./config";
 import type { Db } from "./db";
 import { type GetLatestRaceResponse, getLatestRace } from "./iracing";
 
@@ -81,13 +81,14 @@ export const pollLatestRaces = async (
 	iRacing: IRacingSDK,
 	db: Db,
 	options: {
-		trackedUsers: number[];
+		trackedUsers: TrackedUser[];
 		onLatestRace: (race: GetLatestRaceResponse) => Promise<void>;
 	},
 ) => {
 	const { trackedUsers } = options;
 
-	for (const customerId of trackedUsers) {
+	for (const trackedUser of trackedUsers) {
+		const customerId = Number(trackedUser.customerId);
 		const race = await getLatestRace(iRacing, { customerId });
 		const subsessionId = race.race.subsession_id;
 
@@ -95,14 +96,16 @@ export const pollLatestRaces = async (
 
 		if (hasBeenSeen) {
 			log(
-				`Skipping race ${subsessionId} for ${customerId} because it's already been sent.`,
+				`Skipping race ${subsessionId} for ${customerId} (${trackedUser.name}) because it's already been sent.`,
 				{ subsessionId },
 			);
 			continue;
 		}
 
 		await db.addCustomerRace(customerId, subsessionId);
-		log(`Found new race for ${customerId}.`, { subsessionId });
+		log(`Found new race for ${customerId} (${trackedUser.name}).`, {
+			subsessionId,
+		});
 		await options.onLatestRace(race);
 	}
 };
