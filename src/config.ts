@@ -58,6 +58,11 @@ export const config = run(() => {
 			discordId: "137891685995642880",
 			customerId: "1230088",
 		},
+		{
+			name: "Kaleb",
+			discordId: "812889429534310410",
+			customerId: "769513",
+		},
 	];
 
 	return {
