@@ -32,8 +32,14 @@ export const config = run(() => {
 		throw new Error("DB_PATH is not set");
 	}
 
-	const TRACKED_USERS = [404007, 691855];
-	const POLL_INTERVAL = 1000 * 60 * 5;
+	const TRACKED_USERS = process.env.TRACKED_USERS?.split(",").map(Number);
+	if (!TRACKED_USERS) {
+		throw new Error("TRACKED_USERS is not set");
+	}
+
+	const POLL_INTERVAL = Number.parseInt(
+		process.env.POLL_INTERVAL ?? (60 * 1000 * 5).toString(),
+	);
 
 	return {
 		DISCORD_TOKEN,
