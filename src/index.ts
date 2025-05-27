@@ -28,6 +28,7 @@ run(async () => {
 		await pollLatestRaces(iRacingClient, {
 			trackedUsers: config.TRACKED_USERS,
 			onLatestRace: async (race) => {
+				log("Sending a message");
 				const channel = await discordClient.channels.fetch(
 					config.DISCORD_CHANNEL_ID,
 				);
