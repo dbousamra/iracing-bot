@@ -55,7 +55,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 		.addFields(
 			{
 				name: "📋 • __Details__",
-				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\``,
+				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\`\nSplit » \`${race.split}\``,
 			},
 			{
 				name: "📊 • __Position__",

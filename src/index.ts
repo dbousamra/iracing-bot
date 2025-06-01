@@ -18,7 +18,7 @@ run(async () => {
 	);
 	await iRacingClient.authenticate();
 
-	const commands = getCommands(iRacingClient);
+	const commands = await getCommands(iRacingClient);
 
 	const discordClient = new Client({
 		intents: [

@@ -11,7 +11,7 @@ const run = async () => {
 	await iRacingClient.authenticate();
 
 	deployCommands({
-		commands: getCommands(iRacingClient),
+		commands: await getCommands(iRacingClient),
 		guildId: "949939970804703232",
 	});
 };

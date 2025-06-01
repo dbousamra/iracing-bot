@@ -28,6 +28,10 @@ export const getLatestRace = async (
 		subsession_id: race.subsession_id,
 	});
 
+	const sessionSplit = results.session_splits.findIndex(
+		(split) => split.subsession_id === race.subsession_id,
+	);
+
 	const raceSession = results.session_results.find(
 		(res) => res.simsession_name === "RACE",
 	);
@@ -68,6 +72,7 @@ export const getLatestRace = async (
 		(c) => c.car_class_id === race.car_class_id,
 	);
 	const color = iratingChange > 0 ? 0x00ff00 : 0xff0000;
+	const split = `${sessionSplit + 1} / ${results.session_splits.length}`;
 
 	return {
 		driverName,
@@ -80,6 +85,7 @@ export const getLatestRace = async (
 		oldSubLevel,
 		newSubLevel,
 		subLevelChange,
+		split,
 		series,
 		sof,
 		trackName,

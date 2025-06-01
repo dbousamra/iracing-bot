@@ -1,7 +1,6 @@
 import IRacingSDK from "iracing-web-sdk";
 import { config } from "../config";
 import { getLatestRace } from "../iracing";
-import { createRaceEmbed } from "../util";
 
 const run = async () => {
 	const iRacingClient = new IRacingSDK(
@@ -10,13 +9,11 @@ const run = async () => {
 	);
 	await iRacingClient.authenticate();
 
-	const user = config.TRACKED_USERS.find((u) => u.name === "Dom")!;
-
-	const race = await getLatestRace(iRacingClient, {
-		customerId: Number(user.customerId),
+	const x = await getLatestRace(iRacingClient, {
+		customerId: Number(config.TRACKED_USERS[0].customerId),
 	});
 
-	console.log(createRaceEmbed(race).data.fields);
+	console.log(x);
 };
 
 run();
