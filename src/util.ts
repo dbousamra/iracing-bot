@@ -55,7 +55,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 		.addFields(
 			{
 				name: "📋 • __Details__",
-				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\`\nSplit » \`${race.split}\``,
+				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\nSOF » \`${race.sof}\`\nSplit » \`${race.split}\``,
 			},
 			{
 				name: "📊 • __Position__",
@@ -63,7 +63,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 			},
 			{
 				name: "📉 • __Statistics__",
-				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nSOF » \`${race.sof}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
+				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
 			},
 			{
 				name: "🏆 • __Ratings__",
