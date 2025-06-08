@@ -48,8 +48,16 @@ export const getLatestRace = async (
 	);
 
 	const endTime = results.end_time;
-	const entries = raceSession?.results.length ?? 0;
+
+	// Filter results to only those in the same car class as the driver
+	const classResults =
+		raceSession?.results.filter(
+			(res) => res.car_class_id === race.car_class_id,
+		) ?? [];
+	const entries = classResults.length;
+
 	const driverName = customer.member_info.display_name;
+
 	const startPos = race.start_position;
 	const finishPos = race.finish_position;
 	const incidents = race.incidents;
