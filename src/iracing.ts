@@ -73,7 +73,7 @@ export const getLatestRace = async (
 	const laps = race.laps;
 	const averageLapTime = formatLaptime(raceSessionResult?.average_lap ?? 1);
 	const bestLapTime = formatLaptime(raceSessionResult?.best_lap_time ?? 1);
-	const qualifyingTime = qualiSessionResult
+	const qualifyingTime = qualiSessionResult?.best_qual_lap_time
 		? formatLaptime(qualiSessionResult.best_qual_lap_time)
 		: "No time";
 	const car = results.car_classes.find(
