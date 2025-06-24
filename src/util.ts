@@ -89,23 +89,33 @@ export const pollLatestRaces = async (
 
 	for (const trackedUser of trackedUsers) {
 		const customerId = Number(trackedUser.customerId);
-		const race = await getLatestRace(iRacing, { customerId });
-		const subsessionId = race.race.subsession_id;
 
-		const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
+		try {
+			const race = await getLatestRace(iRacing, { customerId });
+			const subsessionId = race.race.subsession_id;
 
-		if (hasBeenSeen) {
+			const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
+
+			if (hasBeenSeen) {
+				log(
+					`Skipping race ${subsessionId} for ${customerId} (${trackedUser.name}) because it's already been sent.`,
+					{ subsessionId },
+				);
+				continue;
+			}
+
+			await db.addCustomerRace(customerId, subsessionId);
+			log(`Found new race for ${customerId} (${trackedUser.name}).`, {
+				subsessionId,
+			});
+			await options.onLatestRace(race);
+		} catch (error) {
 			log(
-				`Skipping race ${subsessionId} for ${customerId} (${trackedUser.name}) because it's already been sent.`,
-				{ subsessionId },
+				`Error polling latest race for ${customerId} (${trackedUser.name}).`,
+				{
+					error,
+				},
 			);
-			continue;
 		}
-
-		await db.addCustomerRace(customerId, subsessionId);
-		log(`Found new race for ${customerId} (${trackedUser.name}).`, {
-			subsessionId,
-		});
-		await options.onLatestRace(race);
 	}
 };
