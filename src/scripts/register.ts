@@ -1,17 +1,9 @@
-import IRacingSDK from "iracing-web-sdk";
-import { getCommands } from "../commands";
-import { config } from "../config";
+import { commands } from "../commands";
 import { deployCommands } from "../util";
 
 const run = async () => {
-	const iRacingClient = new IRacingSDK(
-		config.IRACING_USERNAME,
-		config.IRACING_PASSWORD,
-	);
-	await iRacingClient.authenticate();
-
 	deployCommands({
-		commands: await getCommands(iRacingClient),
+		commands: commands,
 		guildId: "949939970804703232",
 	});
 };

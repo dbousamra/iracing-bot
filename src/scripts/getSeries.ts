@@ -9,8 +9,8 @@ const run = async () => {
 	);
 	await iRacingClient.authenticate();
 
-	const x = await getLatestRace(iRacingClient, {
-		customerId: Number(config.TRACKED_USERS[0].customerId),
+	const x = await getLatestRace({
+		customerId: 769513,
 	});
 
 	console.log(x);

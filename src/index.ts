@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import IRacingSDK from "iracing-web-sdk";
-import { getCommands } from "./commands";
+import { commands } from "./commands";
 import { config } from "./config";
 import { Db } from "./db";
 import { createRaceEmbed, log, pollLatestRaces, run } from "./util";
@@ -12,14 +12,6 @@ run(async () => {
 	const db = new Db(config.DB_PATH);
 	await db.init();
 
-	const iRacingClient = new IRacingSDK(
-		config.IRACING_USERNAME,
-		config.IRACING_PASSWORD,
-	);
-	await iRacingClient.authenticate();
-
-	const commands = await getCommands(iRacingClient);
-
 	const discordClient = new Client({
 		intents: [
 			GatewayIntentBits.Guilds,
@@ -29,7 +21,7 @@ run(async () => {
 	});
 
 	const poll = async () => {
-		await pollLatestRaces(iRacingClient, db, {
+		await pollLatestRaces(db, {
 			trackedUsers: config.TRACKED_USERS,
 			onLatestRace: async (race) => {
 				const channel = await discordClient.channels.fetch(

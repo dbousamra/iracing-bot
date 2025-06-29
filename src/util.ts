@@ -1,5 +1,5 @@
 import { EmbedBuilder, REST, Routes } from "discord.js";
-import type IRacingSDK from "iracing-web-sdk";
+import IRacingSDK from "iracing-web-sdk";
 import pino from "pino";
 import type { Command } from "./commands";
 import { type TrackedUser, config } from "./config";
@@ -17,6 +17,18 @@ export function run<A>(fn: () => A): A {
 // biome-ignore lint/suspicious/noExplicitAny: No need to type this
 export const log = (message: string, payload?: any) => {
 	logger.info(payload, message);
+};
+
+export const withIRacingSDK = async <A>(
+	fn: (iRacing: IRacingSDK) => Promise<A>,
+): Promise<A> => {
+	const iRacing = new IRacingSDK(
+		config.IRACING_USERNAME,
+		config.IRACING_PASSWORD,
+	);
+	await iRacing.authenticate();
+	const result = await fn(iRacing);
+	return result;
 };
 
 export const deployCommands = async (props: {
@@ -78,7 +90,6 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 };
 
 export const pollLatestRaces = async (
-	iRacing: IRacingSDK,
 	db: Db,
 	options: {
 		trackedUsers: TrackedUser[];
@@ -91,7 +102,7 @@ export const pollLatestRaces = async (
 		const customerId = Number(trackedUser.customerId);
 
 		try {
-			const race = await getLatestRace(iRacing, { customerId });
+			const race = await getLatestRace({ customerId });
 			const subsessionId = race.race.subsession_id;
 
 			const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
