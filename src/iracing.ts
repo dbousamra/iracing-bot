@@ -10,6 +10,23 @@ export const formatLaptime = (laptime: number): string => {
 	return `${minutes}:${seconds.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
 };
 
+export const getDriverResults = <
+	A extends { cust_id?: number; driver_results?: A[] },
+>(
+	results: A[],
+	customerId: number,
+) => {
+	const customerResults = [
+		...results.flatMap((res) => res.driver_results ?? []),
+		...results,
+	];
+	const customerResult = customerResults.find(
+		(res) => res.cust_id === customerId,
+	);
+
+	return customerResult;
+};
+
 export const getLatestRace = async (options: {
 	customerId: number;
 }) => {
@@ -34,16 +51,19 @@ export const getLatestRace = async (options: {
 		const raceSession = results.session_results.find(
 			(res) => res.simsession_name === "RACE",
 		);
+
 		const qualiSession = results.session_results.find(
 			(res) => res.simsession_name === "QUALIFY",
 		);
 
-		const raceSessionResult = raceSession?.results.find(
-			(res) => res.cust_id === customerId,
+		const raceSessionResult = getDriverResults(
+			raceSession?.results ?? [],
+			customerId,
 		);
 
-		const qualiSessionResult = qualiSession?.results.find(
-			(res) => res.cust_id === customerId,
+		const qualiSessionResult = getDriverResults(
+			qualiSession?.results ?? [],
+			customerId,
 		);
 
 		const endTime = results.end_time;

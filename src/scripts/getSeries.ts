@@ -10,10 +10,12 @@ const run = async () => {
 	await iRacingClient.authenticate();
 
 	const x = await getLatestRace({
-		customerId: 769513,
+		customerId: 404007,
 	});
 
-	console.log(x);
+	console.log(x.qualifyingTime);
+	console.log(x.averageLapTime);
+	console.log(x.bestLapTime);
 };
 
 run();
