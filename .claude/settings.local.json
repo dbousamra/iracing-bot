@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:oauth.iracing.com)",
       "WebSearch",
-      "Bash(pnpm run build)"
+      "Bash(pnpm run build)",
+      "Bash(cat:*)"
     ]
   }
 }
