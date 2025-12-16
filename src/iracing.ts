@@ -1,4 +1,5 @@
 import type { IRacingClient } from "./iracing-client";
+import { calculateBottleMeter } from "./bottle-meter";
 
 export const formatLaptime = (laptime: number): string => {
 	const microseconds = laptime * 100;
@@ -104,6 +105,18 @@ export const getLatestRace = async (
 	const color = iratingChange > 0 ? 0x00ff00 : 0xff0000;
 	const split = `${sessionSplit + 1} / ${results.session_splits.length}`;
 
+	// Calculate bottle-meter
+	const bottleMeter = calculateBottleMeter({
+		startPos,
+		finishPos,
+		entries,
+		iratingChange,
+		oldSubLevel,
+		newSubLevel,
+		incidents,
+		laps,
+	});
+
 	return {
 		driverName,
 		endTime,
@@ -127,6 +140,7 @@ export const getLatestRace = async (
 		color,
 		race,
 		entries,
+		bottleMeter,
 	};
 };
 
