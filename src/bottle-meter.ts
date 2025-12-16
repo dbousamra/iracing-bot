@@ -103,10 +103,9 @@ export const calculateBottleMeter = (raceData: {
 	}
 	factors.incidents = Math.min(20, factors.incidents);
 
-	// Calculate total
-	const totalScore = Object.values(factors).reduce(
-		(sum, val) => sum + val,
-		0,
+	// Calculate total and round to avoid floating point precision issues
+	const totalScore = Math.round(
+		Object.values(factors).reduce((sum, val) => sum + val, 0),
 	);
 
 	// Determine level
