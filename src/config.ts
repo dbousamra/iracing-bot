@@ -33,6 +33,16 @@ export const config = run(() => {
 		throw new Error("IRACING_PASSWORD is not set");
 	}
 
+	const IRACING_CLIENT_ID = process.env.IRACING_CLIENT_ID;
+	if (!IRACING_CLIENT_ID) {
+		throw new Error("IRACING_CLIENT_ID is not set");
+	}
+
+	const IRACING_CLIENT_SECRET = process.env.IRACING_CLIENT_SECRET;
+	if (!IRACING_CLIENT_SECRET) {
+		throw new Error("IRACING_CLIENT_SECRET is not set");
+	}
+
 	const DB_PATH = process.env.DB_PATH;
 	if (!DB_PATH) {
 		throw new Error("DB_PATH is not set");
@@ -71,6 +81,8 @@ export const config = run(() => {
 		DISCORD_CHANNEL_ID,
 		IRACING_USERNAME,
 		IRACING_PASSWORD,
+		IRACING_CLIENT_ID,
+		IRACING_CLIENT_SECRET,
 		DB_PATH,
 		POLL_INTERVAL,
 		TRACKED_USERS,

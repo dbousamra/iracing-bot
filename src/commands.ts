@@ -3,7 +3,6 @@ import {
 	SlashCommandBuilder,
 	type SlashCommandOptionsOnlyBuilder,
 } from "discord.js";
-import type IRacingSDK from "iracing-web-sdk";
 import { config } from "./config";
 import { getLatestRace } from "./iracing";
 import { createRaceEmbed } from "./util";

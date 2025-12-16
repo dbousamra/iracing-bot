@@ -1,4 +1,4 @@
-import type IRacingSDK from "iracing-web-sdk";
+import type { IRacingClient } from "./iracing-client";
 import { withIRacingSDK } from "./util";
 
 export const formatLaptime = (laptime: number): string => {

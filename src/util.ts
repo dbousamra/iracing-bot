@@ -1,10 +1,10 @@
 import { EmbedBuilder, REST, Routes } from "discord.js";
-import IRacingSDK from "iracing-web-sdk";
 import pino from "pino";
 import type { Command } from "./commands";
 import { type TrackedUser, config } from "./config";
 import type { Db } from "./db";
 import { type GetLatestRaceResponse, getLatestRace } from "./iracing";
+import { IRacingClient } from "./iracing-client";
 
 const logger = pino({
 	level: "info",
@@ -19,15 +19,13 @@ export const log = (message: string, payload?: any) => {
 	logger.info(payload, message);
 };
 
+// Create a singleton instance of the iRacing client
+const iRacingClient = new IRacingClient();
+
 export const withIRacingSDK = async <A>(
-	fn: (iRacing: IRacingSDK) => Promise<A>,
+	fn: (iRacing: IRacingClient) => Promise<A>,
 ): Promise<A> => {
-	const iRacing = new IRacingSDK(
-		config.IRACING_USERNAME,
-		config.IRACING_PASSWORD,
-	);
-	await iRacing.authenticate();
-	const result = await fn(iRacing);
+	const result = await fn(iRacingClient);
 	return result;
 };
 

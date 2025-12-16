@@ -1,5 +1,4 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import IRacingSDK from "iracing-web-sdk";
 import { commands } from "./commands";
 import { config } from "./config";
 import { Db } from "./db";
@@ -7,7 +6,7 @@ import { createRaceEmbed, log, pollLatestRaces, run } from "./util";
 
 run(async () => {
 	// turning off console logs because the iracingSDK logs a lot of stuff
-	console.log = () => {};
+	// console.log = () => {};
 
 	const db = new Db(config.DB_PATH);
 	await db.init();
