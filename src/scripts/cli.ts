@@ -222,7 +222,7 @@ Examples:
 				process.exit(1);
 		}
 	} catch (error) {
-		console.error(`\n❌ Error fetching data:`, error);
+		console.error("\n❌ Error fetching data:", error);
 		process.exit(1);
 	}
 };

@@ -133,9 +133,6 @@ export type IRacingClientOptions = {
 
 export class IRacingClient {
 	private accessToken: string | null = null;
-	private refreshToken: string | null = null;
-	private tokenExpiresAt: number | null = null;
-	private refreshTokenExpiresAt: number | null = null;
 	private client: AxiosInstance;
 	private options: IRacingClientOptions;
 
@@ -155,35 +152,6 @@ export class IRacingClient {
 		const hash = crypto.createHash("sha256");
 		hash.update(value + salt.toLowerCase());
 		return hash.digest("base64");
-	}
-
-	/**
-	 * Get access token, refreshing if necessary
-	 */
-	private async ensureAuthenticated(): Promise<void> {
-		const now = Date.now();
-
-		// Check if we have a valid access token
-		if (
-			this.accessToken &&
-			this.tokenExpiresAt &&
-			now < this.tokenExpiresAt - 60000
-		) {
-			return;
-		}
-
-		// Check if we can refresh the token
-		if (
-			this.refreshToken &&
-			this.refreshTokenExpiresAt &&
-			now < this.refreshTokenExpiresAt - 60000
-		) {
-			await this.refreshAccessToken();
-			return;
-		}
-
-		// Need to authenticate from scratch
-		await this.authenticate();
 	}
 
 	/**
@@ -219,44 +187,6 @@ export class IRacingClient {
 		);
 
 		this.accessToken = response.data.access_token;
-		this.refreshToken = response.data.refresh_token ?? null;
-		this.tokenExpiresAt = Date.now() + response.data.expires_in * 1000;
-		this.refreshTokenExpiresAt = response.data.refresh_token_expires_in
-			? Date.now() + response.data.refresh_token_expires_in * 1000
-			: null;
-	}
-
-	/**
-	 * Refresh access token using refresh_token grant
-	 */
-	private async refreshAccessToken(): Promise<void> {
-		if (!this.refreshToken) {
-			throw new Error("No refresh token available");
-		}
-
-		const params = new URLSearchParams({
-			grant_type: "refresh_token",
-			client_id: this.options.clientId,
-			client_secret: this.options.clientSecret,
-			refresh_token: this.refreshToken,
-		});
-
-		const response = await axios.post<TokenResponse>(
-			`${OAUTH_BASE_URL}/oauth2/token`,
-			params.toString(),
-			{
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-			},
-		);
-
-		this.accessToken = response.data.access_token;
-		this.refreshToken = response.data.refresh_token ?? this.refreshToken;
-		this.tokenExpiresAt = Date.now() + response.data.expires_in * 1000;
-		this.refreshTokenExpiresAt = response.data.refresh_token_expires_in
-			? Date.now() + response.data.refresh_token_expires_in * 1000
-			: this.refreshTokenExpiresAt;
 	}
 
 	/**
@@ -264,7 +194,7 @@ export class IRacingClient {
 	 * The API returns a link to S3 where the actual data is stored
 	 */
 	private async request<T>(endpoint: string): Promise<T> {
-		await this.ensureAuthenticated();
+		await this.authenticate();
 
 		// First request to the data API to get the S3 link
 		const response = await this.client.get<{ link: string; expires: string }>(
