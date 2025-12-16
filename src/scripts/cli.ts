@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 
 import { config } from "../config";
+import { getCareerStats, getLatestRace, getRecentForm } from "../iracing";
 import { IRacingClient } from "../iracing-client";
-import { getLatestRace, getCareerStats, getRecentForm } from "../iracing";
 
 const iRacingClient = new IRacingClient({
 	username: config.IRACING_USERNAME,

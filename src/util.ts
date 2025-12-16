@@ -4,8 +4,8 @@ import type { Command } from "./commands";
 import { type TrackedUser, config } from "./config";
 import type { Db } from "./db";
 import {
-	type GetLatestRaceResponse,
 	type GetCareerStatsResponse,
+	type GetLatestRaceResponse,
 	type GetRecentFormResponse,
 	getLatestRace,
 } from "./iracing";

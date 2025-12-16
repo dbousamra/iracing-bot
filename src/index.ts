@@ -6,9 +6,6 @@ import { IRacingClient } from "./iracing-client";
 import { createRaceEmbed, log, pollLatestRaces, run } from "./util";
 
 run(async () => {
-	// turning off console logs because the iracingSDK logs a lot of stuff
-	// console.log = () => {};
-
 	const db = new Db(config.DB_PATH);
 	await db.init();
 

@@ -218,7 +218,8 @@ export const getCareerStats = async (
 		top5: stat.top5,
 		poles: stat.poles,
 		winPercentage: stat.win_percentage.toFixed(1),
-		top5Percentage: stat.top5.toFixed(1),
+		top5Percentage:
+			stat.starts > 0 ? ((stat.top5 / stat.starts) * 100).toFixed(1) : "0.0",
 	}));
 
 	return {
