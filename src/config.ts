@@ -35,12 +35,12 @@ export const config = run(() => {
 		throw new Error("IRACING_PASSWORD is not set");
 	}
 
-	const IRACING_CLIENT_ID = process.env.IRACING_CLIENT_ID;
+	const IRACING_CLIENT_ID = 123;
 	if (!IRACING_CLIENT_ID) {
 		throw new Error("IRACING_CLIENT_ID is not set");
 	}
 
-	const IRACING_CLIENT_SECRET = process.env.IRACING_CLIENT_SECRET;
+	const IRACING_CLIENT_SECRET = 456;
 	if (!IRACING_CLIENT_SECRET) {
 		throw new Error("IRACING_CLIENT_SECRET is not set");
 	}
