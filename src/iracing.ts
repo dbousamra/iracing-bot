@@ -177,23 +177,37 @@ export const getCareerStats = async (
 	// Calculate overall percentages
 	const winPercentage =
 		aggregatedStats.totalStarts > 0
-			? ((aggregatedStats.totalWins / aggregatedStats.totalStarts) * 100).toFixed(1)
+			? (
+					(aggregatedStats.totalWins / aggregatedStats.totalStarts) *
+					100
+				).toFixed(1)
 			: "0.0";
 	const top5Percentage =
 		aggregatedStats.totalStarts > 0
-			? ((aggregatedStats.totalTop5 / aggregatedStats.totalStarts) * 100).toFixed(1)
+			? (
+					(aggregatedStats.totalTop5 / aggregatedStats.totalStarts) *
+					100
+				).toFixed(1)
 			: "0.0";
 	const polePercentage =
 		aggregatedStats.totalStarts > 0
-			? ((aggregatedStats.totalPoles / aggregatedStats.totalStarts) * 100).toFixed(1)
+			? (
+					(aggregatedStats.totalPoles / aggregatedStats.totalStarts) *
+					100
+				).toFixed(1)
 			: "0.0";
 	const lapsLedPercentage =
 		aggregatedStats.totalLaps > 0
-			? ((aggregatedStats.totalLapsLed / aggregatedStats.totalLaps) * 100).toFixed(1)
+			? (
+					(aggregatedStats.totalLapsLed / aggregatedStats.totalLaps) *
+					100
+				).toFixed(1)
 			: "0.0";
 	const avgIncidents =
 		aggregatedStats.totalStarts > 0
-			? (aggregatedStats.totalIncidents / aggregatedStats.totalStarts).toFixed(2)
+			? (aggregatedStats.totalIncidents / aggregatedStats.totalStarts).toFixed(
+					2,
+				)
 			: "0.00";
 
 	// Break down by category (Oval, Road, Dirt Oval, Dirt Road)
@@ -242,10 +256,10 @@ export const getRecentForm = async (
 	const driverName = customer.member_info.display_name;
 
 	// Take last 10 races
-	const last10Races = recentRaces.races.slice(0, 10);
+	const last5Races = recentRaces.races.slice(0, 5);
 
 	// Calculate trend metrics
-	const raceMetrics = last10Races.map((race) => {
+	const raceMetrics = last5Races.map((race) => {
 		const iratingChange = race.newi_rating - race.oldi_rating;
 		const positionChange = race.start_position - race.finish_position;
 		return {
@@ -273,7 +287,8 @@ export const getRecentForm = async (
 		raceMetrics.reduce((acc, race) => acc + race.finishPos, 0) /
 		raceMetrics.length;
 	const avgStartPos =
-		raceMetrics.reduce((acc, race) => acc + race.startPos, 0) / raceMetrics.length;
+		raceMetrics.reduce((acc, race) => acc + race.startPos, 0) /
+		raceMetrics.length;
 	const avgIncidents =
 		raceMetrics.reduce((acc, race) => acc + race.incidents, 0) /
 		raceMetrics.length;
