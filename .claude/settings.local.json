@@ -4,7 +4,11 @@
       "WebFetch(domain:oauth.iracing.com)",
       "WebSearch",
       "Bash(pnpm run build)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(tsx src/scripts/register.ts:*)",
+      "Bash(pnpm exec tsx:*)",
+      "Bash(pnpm run cli:*)"
     ]
   }
 }

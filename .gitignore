@@ -137,3 +137,5 @@ dist
 
 # Data dir
 data/
+
+.DS_Store

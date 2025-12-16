@@ -131,3 +131,186 @@ export const getLatestRace = async (
 };
 
 export type GetLatestRaceResponse = Awaited<ReturnType<typeof getLatestRace>>;
+
+/**
+ * Get comprehensive career statistics for a member
+ */
+export const getCareerStats = async (
+	iRacingClient: IRacingClient,
+	options: {
+		customerId: number;
+	},
+) => {
+	const { customerId } = options;
+
+	const [customer, careerStats, summary] = await Promise.all([
+		iRacingClient.getMemberProfile({ cust_id: customerId }),
+		iRacingClient.getMemberCareerStats({ cust_id: customerId }),
+		iRacingClient.getMemberSummary({ cust_id: customerId }),
+	]);
+
+	const driverName = customer.member_info.display_name;
+
+	// Aggregate stats across all categories
+	const aggregatedStats = careerStats.stats.reduce(
+		(acc, stat) => {
+			acc.totalStarts += stat.starts;
+			acc.totalWins += stat.wins;
+			acc.totalTop5 += stat.top5;
+			acc.totalPoles += stat.poles;
+			acc.totalLaps += stat.laps;
+			acc.totalLapsLed += stat.laps_led;
+			acc.totalIncidents += stat.avg_incidents * stat.starts;
+			return acc;
+		},
+		{
+			totalStarts: 0,
+			totalWins: 0,
+			totalTop5: 0,
+			totalPoles: 0,
+			totalLaps: 0,
+			totalLapsLed: 0,
+			totalIncidents: 0,
+		},
+	);
+
+	// Calculate overall percentages
+	const winPercentage =
+		aggregatedStats.totalStarts > 0
+			? ((aggregatedStats.totalWins / aggregatedStats.totalStarts) * 100).toFixed(1)
+			: "0.0";
+	const top5Percentage =
+		aggregatedStats.totalStarts > 0
+			? ((aggregatedStats.totalTop5 / aggregatedStats.totalStarts) * 100).toFixed(1)
+			: "0.0";
+	const polePercentage =
+		aggregatedStats.totalStarts > 0
+			? ((aggregatedStats.totalPoles / aggregatedStats.totalStarts) * 100).toFixed(1)
+			: "0.0";
+	const lapsLedPercentage =
+		aggregatedStats.totalLaps > 0
+			? ((aggregatedStats.totalLapsLed / aggregatedStats.totalLaps) * 100).toFixed(1)
+			: "0.0";
+	const avgIncidents =
+		aggregatedStats.totalStarts > 0
+			? (aggregatedStats.totalIncidents / aggregatedStats.totalStarts).toFixed(2)
+			: "0.00";
+
+	// Break down by category (Oval, Road, Dirt Oval, Dirt Road)
+	const categoryBreakdown = careerStats.stats.map((stat) => ({
+		category: stat.category,
+		starts: stat.starts,
+		wins: stat.wins,
+		top5: stat.top5,
+		poles: stat.poles,
+		winPercentage: stat.win_percentage.toFixed(1),
+		top5Percentage: stat.top5.toFixed(1),
+	}));
+
+	return {
+		driverName,
+		aggregatedStats,
+		winPercentage,
+		top5Percentage,
+		polePercentage,
+		lapsLedPercentage,
+		avgIncidents,
+		categoryBreakdown,
+		thisYearStats: summary.this_year,
+	};
+};
+
+export type GetCareerStatsResponse = Awaited<ReturnType<typeof getCareerStats>>;
+
+/**
+ * Get recent form with trend analysis for last 10 races
+ */
+export const getRecentForm = async (
+	iRacingClient: IRacingClient,
+	options: {
+		customerId: number;
+	},
+) => {
+	const { customerId } = options;
+
+	const [customer, recentRaces, recap] = await Promise.all([
+		iRacingClient.getMemberProfile({ cust_id: customerId }),
+		iRacingClient.getRecentRaces({ cust_id: customerId }),
+		iRacingClient.getMemberRecap({ cust_id: customerId }),
+	]);
+
+	const driverName = customer.member_info.display_name;
+
+	// Take last 10 races
+	const last10Races = recentRaces.races.slice(0, 10);
+
+	// Calculate trend metrics
+	const raceMetrics = last10Races.map((race) => {
+		const iratingChange = race.newi_rating - race.oldi_rating;
+		const positionChange = race.start_position - race.finish_position;
+		return {
+			subsessionId: race.subsession_id,
+			series: race.series_name,
+			track: race.track.track_name,
+			startPos: race.start_position,
+			finishPos: race.finish_position,
+			positionChange,
+			iRating: race.newi_rating,
+			iratingChange,
+			incidents: race.incidents,
+			sof: race.strength_of_field,
+			sessionStartTime: race.session_start_time,
+		};
+	});
+
+	// Calculate trends
+	const totalIratingChange = raceMetrics.reduce(
+		(acc, race) => acc + race.iratingChange,
+		0,
+	);
+	const avgIratingChange = (totalIratingChange / raceMetrics.length).toFixed(0);
+	const avgFinishPos =
+		raceMetrics.reduce((acc, race) => acc + race.finishPos, 0) /
+		raceMetrics.length;
+	const avgStartPos =
+		raceMetrics.reduce((acc, race) => acc + race.startPos, 0) / raceMetrics.length;
+	const avgIncidents =
+		raceMetrics.reduce((acc, race) => acc + race.incidents, 0) /
+		raceMetrics.length;
+	const avgSof =
+		raceMetrics.reduce((acc, race) => acc + race.sof, 0) / raceMetrics.length;
+
+	const wins = raceMetrics.filter((r) => r.finishPos === 1).length;
+	const top5 = raceMetrics.filter((r) => r.finishPos <= 5).length;
+	const positionsGained = raceMetrics.reduce(
+		(acc, race) => acc + Math.max(0, race.positionChange),
+		0,
+	);
+
+	// Determine trend color: green if gaining iRating, red if losing
+	const trendColor = totalIratingChange >= 0 ? 0x00ff00 : 0xff0000;
+
+	// Get current iRating from most recent race
+	const currentIrating = raceMetrics[0]?.iRating ?? 0;
+
+	return {
+		driverName,
+		currentIrating,
+		raceMetrics,
+		trends: {
+			totalIratingChange,
+			avgIratingChange,
+			avgFinishPos: avgFinishPos.toFixed(1),
+			avgStartPos: avgStartPos.toFixed(1),
+			avgIncidents: avgIncidents.toFixed(2),
+			avgSof: Math.round(avgSof),
+			wins,
+			top5,
+			positionsGained,
+		},
+		recap,
+		trendColor,
+	};
+};
+
+export type GetRecentFormResponse = Awaited<ReturnType<typeof getRecentForm>>;

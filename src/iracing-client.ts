@@ -73,6 +73,57 @@ interface SubsessionResults {
 	car_classes: CarClass[];
 }
 
+// Career Stats Types
+interface CareerStat {
+	avg_finish_position: number;
+	avg_incidents: number;
+	category: string;
+	category_id: number;
+	laps: number;
+	laps_led: number;
+	poles: number;
+	starts: number;
+	top5: number;
+	win_percentage: number;
+	wins: number;
+}
+
+interface MemberCareerStats {
+	cust_id: number;
+	stats: CareerStat[];
+}
+
+interface MemberSummary {
+	cust_id: number;
+	this_year: {
+		num_league_sessions: number;
+		num_league_wins: number;
+		num_official_sessions: number;
+		num_official_wins: number;
+	};
+}
+
+interface MemberRecap {
+	cust_id: number;
+	stats: {
+		avg_finish_position: number;
+		avg_start_position: number;
+		favorite_car: {
+			car_id: number;
+			car_name: string;
+		};
+		favorite_track: {
+			track_id: number;
+			track_name: string;
+		};
+		laps: number;
+		laps_led: number;
+		starts: number;
+		top5: number;
+		wins: number;
+	};
+}
+
 export type IRacingClientOptions = {
 	username: string;
 	password: string;
@@ -225,6 +276,10 @@ export class IRacingClient {
 			},
 		);
 
+		if (!response.data.link) {
+			return response.data as T;
+		}
+
 		// Second request to fetch the actual data from S3
 		const dataResponse = await this.client.get<T>(response.data.link);
 
@@ -257,6 +312,43 @@ export class IRacingClient {
 	}): Promise<SubsessionResults> {
 		return this.request<SubsessionResults>(
 			`/results/get?subsession_id=${options.subsession_id}`,
+		);
+	}
+
+	/**
+	 * Get the documentation for the iRacing API
+	 */
+	async getDoc() {
+		// biome-ignore lint/suspicious/noExplicitAny: No need to type this
+		return this.request<any>("/doc");
+	}
+
+	/**
+	 * Get member career statistics
+	 */
+	async getMemberCareerStats(options: {
+		cust_id: number;
+	}): Promise<MemberCareerStats> {
+		return this.request<MemberCareerStats>(
+			`/stats/member_career?cust_id=${options.cust_id}`,
+		);
+	}
+
+	/**
+	 * Get member summary with this year's session counts
+	 */
+	async getMemberSummary(options: { cust_id: number }): Promise<MemberSummary> {
+		return this.request<MemberSummary>(
+			`/stats/member_summary?cust_id=${options.cust_id}`,
+		);
+	}
+
+	/**
+	 * Get member recap with statistical trends
+	 */
+	async getMemberRecap(options: { cust_id: number }): Promise<MemberRecap> {
+		return this.request<MemberRecap>(
+			`/stats/member_recap?cust_id=${options.cust_id}`,
 		);
 	}
 }
