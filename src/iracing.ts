@@ -34,10 +34,12 @@ export const getLatestRace = async (
 ) => {
 	const { customerId } = options;
 
-	const [customer, recentRaces] = await Promise.all([
-		iRacingClient.getMemberProfile({ cust_id: customerId }),
-		iRacingClient.getRecentRaces({ cust_id: customerId }),
-	]);
+	const customer = await iRacingClient.getMemberProfile({
+		cust_id: customerId,
+	});
+	const recentRaces = await iRacingClient.getRecentRaces({
+		cust_id: customerId,
+	});
 
 	const race = recentRaces.races[0];
 

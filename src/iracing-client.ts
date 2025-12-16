@@ -210,11 +210,13 @@ export class IRacingClient {
 
 	/**
 	 * Make an authenticated request to the iRacing data API
+	 * The API returns a link to S3 where the actual data is stored
 	 */
 	private async request<T>(endpoint: string): Promise<T> {
 		await this.ensureAuthenticated();
 
-		const response = await this.client.get<T>(
+		// First request to the data API to get the S3 link
+		const response = await this.client.get<{ link: string; expires: string }>(
 			`${DATA_API_BASE_URL}${endpoint}`,
 			{
 				headers: {
@@ -223,7 +225,10 @@ export class IRacingClient {
 			},
 		);
 
-		return response.data;
+		// Second request to fetch the actual data from S3
+		const dataResponse = await this.client.get<T>(response.data.link);
+
+		return dataResponse.data;
 	}
 
 	/**
@@ -240,7 +245,7 @@ export class IRacingClient {
 	 */
 	async getRecentRaces(options: { cust_id: number }): Promise<RecentRaces> {
 		return this.request<RecentRaces>(
-			`/results/recent_races?cust_id=${options.cust_id}`,
+			`/stats/member_recent_races?cust_id=${options.cust_id}`,
 		);
 	}
 
