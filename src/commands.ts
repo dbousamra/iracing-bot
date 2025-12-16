@@ -5,6 +5,7 @@ import {
 } from "discord.js";
 import { config } from "./config";
 import { getLatestRace } from "./iracing";
+import type { IRacingClient } from "./iracing-client";
 import { createRaceEmbed } from "./util";
 
 export type Command = {
@@ -21,7 +22,7 @@ export const ping: Command = {
 	},
 };
 
-export const latestRace: Command = {
+export const latestRace = (iRacingClient: IRacingClient): Command => ({
 	data: new SlashCommandBuilder()
 		.setName("latest_race")
 		.setDescription("Get the latest race for a member")
@@ -58,7 +59,7 @@ export const latestRace: Command = {
 
 		try {
 			const customerId = Number(trackedUser.customerId);
-			const latestRace = await getLatestRace({
+			const latestRace = await getLatestRace(iRacingClient, {
 				customerId,
 			});
 			const embed = createRaceEmbed(latestRace);
@@ -67,9 +68,11 @@ export const latestRace: Command = {
 			await interaction.editReply({ content: "Failed to fetch race data." });
 		}
 	},
-};
+});
 
-export const commands: Record<string, Command> = {
-	ping,
-	latest_race: latestRace,
+export const getCommands = (iRacingClient: IRacingClient) => {
+	return {
+		ping,
+		latest_race: latestRace(iRacingClient),
+	};
 };

@@ -1,6 +1,5 @@
-import axios, { type AxiosInstance } from "axios";
 import crypto from "node:crypto";
-import { config } from "./config";
+import axios, { type AxiosInstance } from "axios";
 
 const OAUTH_BASE_URL = "https://oauth.iracing.com";
 const DATA_API_BASE_URL = "https://members-ng.iracing.com/data";
@@ -74,14 +73,23 @@ interface SubsessionResults {
 	car_classes: CarClass[];
 }
 
+export type IRacingClientOptions = {
+	username: string;
+	password: string;
+	clientId: string;
+	clientSecret: string;
+};
+
 export class IRacingClient {
 	private accessToken: string | null = null;
 	private refreshToken: string | null = null;
 	private tokenExpiresAt: number | null = null;
 	private refreshTokenExpiresAt: number | null = null;
 	private client: AxiosInstance;
+	private options: IRacingClientOptions;
 
-	constructor() {
+	constructor(options: IRacingClientOptions) {
+		this.options = options;
 		this.client = axios.create({
 			headers: {
 				"Content-Type": "application/json",
@@ -132,19 +140,19 @@ export class IRacingClient {
 	 */
 	private async authenticate(): Promise<void> {
 		const hashedPassword = this.hashValue(
-			config.IRACING_PASSWORD,
-			config.IRACING_USERNAME,
+			this.options.password,
+			this.options.username,
 		);
 		const hashedClientSecret = this.hashValue(
-			config.IRACING_CLIENT_SECRET,
-			config.IRACING_CLIENT_ID,
+			this.options.clientSecret,
+			this.options.clientId,
 		);
 
 		const params = new URLSearchParams({
 			grant_type: "password_limited",
-			client_id: config.IRACING_CLIENT_ID,
+			client_id: this.options.clientId,
 			client_secret: hashedClientSecret,
-			username: config.IRACING_USERNAME,
+			username: this.options.username,
 			password: hashedPassword,
 			scope: "iracing.auth",
 		});
@@ -177,8 +185,8 @@ export class IRacingClient {
 
 		const params = new URLSearchParams({
 			grant_type: "refresh_token",
-			client_id: config.IRACING_CLIENT_ID,
-			client_secret: config.IRACING_CLIENT_SECRET,
+			client_id: this.options.clientId,
+			client_secret: this.options.clientSecret,
 			refresh_token: this.refreshToken,
 		});
 

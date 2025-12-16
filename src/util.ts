@@ -4,7 +4,7 @@ import type { Command } from "./commands";
 import { type TrackedUser, config } from "./config";
 import type { Db } from "./db";
 import { type GetLatestRaceResponse, getLatestRace } from "./iracing";
-import { IRacingClient } from "./iracing-client";
+import type { IRacingClient } from "./iracing-client";
 
 const logger = pino({
 	level: "info",
@@ -17,16 +17,6 @@ export function run<A>(fn: () => A): A {
 // biome-ignore lint/suspicious/noExplicitAny: No need to type this
 export const log = (message: string, payload?: any) => {
 	logger.info(payload, message);
-};
-
-// Create a singleton instance of the iRacing client
-const iRacingClient = new IRacingClient();
-
-export const withIRacingSDK = async <A>(
-	fn: (iRacing: IRacingClient) => Promise<A>,
-): Promise<A> => {
-	const result = await fn(iRacingClient);
-	return result;
 };
 
 export const deployCommands = async (props: {
@@ -88,6 +78,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 };
 
 export const pollLatestRaces = async (
+	iRacingClient: IRacingClient,
 	db: Db,
 	options: {
 		trackedUsers: TrackedUser[];
@@ -100,7 +91,7 @@ export const pollLatestRaces = async (
 		const customerId = Number(trackedUser.customerId);
 
 		try {
-			const race = await getLatestRace({ customerId });
+			const race = await getLatestRace(iRacingClient, { customerId });
 			const subsessionId = race.race.subsession_id;
 
 			const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
