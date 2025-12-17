@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import axios, { type AxiosInstance } from "axios";
+import { log } from "./util";
 
 const OAUTH_BASE_URL = "https://oauth.iracing.com";
 const DATA_API_BASE_URL = "https://members-ng.iracing.com/data";
@@ -172,7 +173,7 @@ export class IRacingClient {
 			this.tokenExpiresAt &&
 			now < this.tokenExpiresAt - 60000
 		) {
-			console.log("Access token is still valid");
+			log("Access token is still valid");
 			return;
 		}
 
@@ -182,13 +183,13 @@ export class IRacingClient {
 			this.refreshTokenExpiresAt &&
 			now < this.refreshTokenExpiresAt - 60000
 		) {
-			console.log("Refreshing access token");
+			log("Refreshing access token");
 			await this.refreshAccessToken();
 			return;
 		}
 
 		// Need to authenticate from scratch
-		console.log("Authenticating from scratch");
+		log("Authenticating from scratch");
 		await this.authenticate();
 	}
 
@@ -224,18 +225,13 @@ export class IRacingClient {
 			},
 		);
 
-		console.log(
-			"Received token response:",
-			{
-				expires_in: response.data.expires_in,
-				refresh_token_expires_in: response.data.refresh_token_expires_in,
-			},
-			{
-				limit: response.headers["ratelimit-limit"],
-				remaining: response.headers["ratelimit-remaining"],
-				reset: response.headers["ratelimit-reset"],
-			},
-		);
+		log("Received token response:", {
+			expires_in: response.data.expires_in,
+			refresh_token_expires_in: response.data.refresh_token_expires_in,
+			limit: response.headers["ratelimit-limit"],
+			remaining: response.headers["ratelimit-remaining"],
+			reset: response.headers["ratelimit-reset"],
+		});
 
 		this.accessToken = response.data.access_token;
 		this.refreshToken = response.data.refresh_token ?? null;

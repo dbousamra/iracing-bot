@@ -9,7 +9,6 @@ export interface BottleMeterResult {
 		safetyRatingLoss: number; // 0-20 points
 		incidents: number; // 0-20 points
 	};
-	description: string;
 	emoji: string;
 }
 
@@ -22,7 +21,6 @@ export interface MichaelsBottleMeterResult {
 		positionsDropped: number;
 		percentageDropped: number;
 	};
-	description: string;
 	emoji: string;
 }
 
@@ -58,10 +56,7 @@ export const calculateBottleMeter = (raceData: {
 	}
 
 	// Bonuses for catastrophic position losses
-	if (
-		raceData.startPos <= 3 &&
-		raceData.finishPos > raceData.entries - 5
-	) {
+	if (raceData.startPos <= 3 && raceData.finishPos > raceData.entries - 5) {
 		factors.positionLoss += 10;
 	}
 	if (raceData.startPos === 1 && raceData.finishPos > 10) {
@@ -123,24 +118,19 @@ export const calculateBottleMeter = (raceData: {
 
 	// Determine level (Australian fire warning system)
 	let level: BottleLevel;
-	let description: string;
 	let emoji: string;
 
 	if (totalScore <= 35) {
 		level = "moderate";
-		description = "Plan and prepare";
 		emoji = "🟢";
 	} else if (totalScore <= 60) {
 		level = "high";
-		description = "Prepare to act";
 		emoji = "🟡";
 	} else if (totalScore <= 80) {
 		level = "extreme";
-		description = "Take action now to protect your life and property";
 		emoji = "🔥";
 	} else {
 		level = "catastrophic";
-		description = "For your survival, leave bush fire risk areas";
 		emoji = "💥🔥💥";
 	}
 
@@ -148,7 +138,6 @@ export const calculateBottleMeter = (raceData: {
 		level,
 		score: totalScore,
 		factors,
-		description,
 		emoji,
 	};
 };
@@ -159,9 +148,7 @@ export const calculateMichaelsBottleMeter = (raceData: {
 	allDriversData: { custId: number; oldiRating: number; finishPos: number }[];
 }): MichaelsBottleMeterResult => {
 	// Filter out drivers with missing or zero iRating
-	const validDrivers = raceData.allDriversData.filter(
-		(d) => d.oldiRating > 0,
-	);
+	const validDrivers = raceData.allDriversData.filter((d) => d.oldiRating > 0);
 
 	// If too few valid drivers, return lowest level
 	if (validDrivers.length < 3) {
@@ -174,7 +161,6 @@ export const calculateMichaelsBottleMeter = (raceData: {
 				positionsDropped: 0,
 				percentageDropped: 0,
 			},
-			description: "Insufficient data for calculation",
 			emoji: "❓",
 		};
 	}
@@ -203,7 +189,6 @@ export const calculateMichaelsBottleMeter = (raceData: {
 				positionsDropped: 0,
 				percentageDropped: 0,
 			},
-			description: "Driver not found in results",
 			emoji: "❓",
 		};
 	}
@@ -223,7 +208,6 @@ export const calculateMichaelsBottleMeter = (raceData: {
 				positionsDropped: 0,
 				percentageDropped: 0,
 			},
-			description: "Plan and prepare",
 			emoji: "🟢",
 		};
 	}
@@ -251,24 +235,19 @@ export const calculateMichaelsBottleMeter = (raceData: {
 
 	// Determine level (Australian fire warning system)
 	let level: BottleLevel;
-	let description: string;
 	let emoji: string;
 
 	if (score <= 35) {
 		level = "moderate";
-		description = "Plan and prepare";
 		emoji = "🟢";
 	} else if (score <= 60) {
 		level = "high";
-		description = "Prepare to act";
 		emoji = "🟡";
 	} else if (score <= 80) {
 		level = "extreme";
-		description = "Take action now to protect your life and property";
 		emoji = "🔥";
 	} else {
 		level = "catastrophic";
-		description = "For your survival, leave bush fire risk areas";
 		emoji = "💥🔥💥";
 	}
 
@@ -281,7 +260,6 @@ export const calculateMichaelsBottleMeter = (raceData: {
 			positionsDropped,
 			percentageDropped: Math.round(percentageDropped * 10) / 10, // Round to 1 decimal
 		},
-		description,
 		emoji,
 	};
 };
