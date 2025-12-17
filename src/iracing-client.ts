@@ -50,6 +50,9 @@ interface DriverResult {
 	best_lap_time?: number;
 	best_qual_lap_time?: number;
 	car_class_id?: number;
+	oldi_rating?: number;
+	finish_position?: number;
+	finish_position_in_class?: number;
 }
 
 interface SessionResult {

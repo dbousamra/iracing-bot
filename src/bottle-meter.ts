@@ -1,4 +1,4 @@
-export type BottleLevel = "none" | "low" | "moderate" | "high" | "catastrophic";
+export type BottleLevel = "moderate" | "high" | "extreme" | "catastrophic";
 
 export interface BottleMeterResult {
 	level: BottleLevel;
@@ -8,6 +8,19 @@ export interface BottleMeterResult {
 		iRatingLoss: number; // 0-30 points
 		safetyRatingLoss: number; // 0-20 points
 		incidents: number; // 0-20 points
+	};
+	description: string;
+	emoji: string;
+}
+
+export interface MichaelsBottleMeterResult {
+	level: BottleLevel;
+	score: number; // 0-100
+	factors: {
+		expectedPosition: number;
+		actualPosition: number;
+		positionsDropped: number;
+		percentageDropped: number;
 	};
 	description: string;
 	emoji: string;
@@ -108,37 +121,166 @@ export const calculateBottleMeter = (raceData: {
 		Object.values(factors).reduce((sum, val) => sum + val, 0),
 	);
 
-	// Determine level
+	// Determine level (Australian fire warning system)
 	let level: BottleLevel;
 	let description: string;
 	let emoji: string;
 
-	if (totalScore <= 15) {
-		level = "none";
-		description = "Clean performance";
-		emoji = "✅";
-	} else if (totalScore <= 35) {
-		level = "low";
-		description = "Minor mistakes";
-		emoji = "⚠️";
-	} else if (totalScore <= 60) {
+	if (totalScore <= 35) {
 		level = "moderate";
-		description = "Noticeable underperformance";
-		emoji = "🍾";
-	} else if (totalScore <= 80) {
+		description = "Plan and prepare";
+		emoji = "🟢";
+	} else if (totalScore <= 60) {
 		level = "high";
-		description = "Significant bottling detected";
-		emoji = "🍾🍾";
+		description = "Prepare to act";
+		emoji = "🟡";
+	} else if (totalScore <= 80) {
+		level = "extreme";
+		description = "Take action now to protect your life and property";
+		emoji = "🔥";
 	} else {
 		level = "catastrophic";
-		description = "COMPLETE BOTTLE JOB";
-		emoji = "💥🍾💥";
+		description = "For your survival, leave bush fire risk areas";
+		emoji = "💥🔥💥";
 	}
 
 	return {
 		level,
 		score: totalScore,
 		factors,
+		description,
+		emoji,
+	};
+};
+
+export const calculateMichaelsBottleMeter = (raceData: {
+	finishPos: number;
+	oldiRating: number;
+	allDriversData: { custId: number; oldiRating: number; finishPos: number }[];
+}): MichaelsBottleMeterResult => {
+	// Filter out drivers with missing or zero iRating
+	const validDrivers = raceData.allDriversData.filter(
+		(d) => d.oldiRating > 0,
+	);
+
+	// If too few valid drivers, return lowest level
+	if (validDrivers.length < 3) {
+		return {
+			level: "moderate",
+			score: 0,
+			factors: {
+				expectedPosition: raceData.finishPos,
+				actualPosition: raceData.finishPos,
+				positionsDropped: 0,
+				percentageDropped: 0,
+			},
+			description: "Insufficient data for calculation",
+			emoji: "❓",
+		};
+	}
+
+	// Sort drivers by starting iRating (descending) to determine expected order
+	const sortedDrivers = [...validDrivers].sort((a, b) => {
+		const ratingDiff = b.oldiRating - a.oldiRating;
+		if (ratingDiff !== 0) return ratingDiff;
+		// If iRatings are equal, maintain original order (stable sort)
+		return validDrivers.indexOf(a) - validDrivers.indexOf(b);
+	});
+
+	// Find the driver's expected position based on their iRating rank
+	const driverIndex = sortedDrivers.findIndex(
+		(d) => d.oldiRating === raceData.oldiRating,
+	);
+
+	// If driver not found in results, return lowest level
+	if (driverIndex === -1) {
+		return {
+			level: "moderate",
+			score: 0,
+			factors: {
+				expectedPosition: 0,
+				actualPosition: raceData.finishPos,
+				positionsDropped: 0,
+				percentageDropped: 0,
+			},
+			description: "Driver not found in results",
+			emoji: "❓",
+		};
+	}
+
+	const expectedPosition = driverIndex + 1; // 1-indexed
+	const actualPosition = raceData.finishPos;
+	const positionsDropped = actualPosition - expectedPosition;
+
+	// If driver finished better than or equal to expected, lowest level
+	if (positionsDropped <= 0) {
+		return {
+			level: "moderate",
+			score: 0,
+			factors: {
+				expectedPosition,
+				actualPosition,
+				positionsDropped: 0,
+				percentageDropped: 0,
+			},
+			description: "Plan and prepare",
+			emoji: "🟢",
+		};
+	}
+
+	// Calculate percentage of field dropped
+	const fieldSize = validDrivers.length;
+	const percentageDropped = (positionsDropped / fieldSize) * 100;
+
+	// Map percentage to 0-100 score
+	let score = 0;
+	if (percentageDropped <= 10) {
+		score = percentageDropped * 1.5; // 0-15
+	} else if (percentageDropped <= 25) {
+		score = 15 + (percentageDropped - 10) * 1.33; // 15-35
+	} else if (percentageDropped <= 50) {
+		score = 35 + (percentageDropped - 25) * 1.0; // 35-60
+	} else if (percentageDropped <= 75) {
+		score = 60 + (percentageDropped - 50) * 0.8; // 60-80
+	} else {
+		score = 80 + (percentageDropped - 75) * 0.8; // 80-100
+	}
+
+	// Round and cap at 100
+	score = Math.min(100, Math.round(score));
+
+	// Determine level (Australian fire warning system)
+	let level: BottleLevel;
+	let description: string;
+	let emoji: string;
+
+	if (score <= 35) {
+		level = "moderate";
+		description = "Plan and prepare";
+		emoji = "🟢";
+	} else if (score <= 60) {
+		level = "high";
+		description = "Prepare to act";
+		emoji = "🟡";
+	} else if (score <= 80) {
+		level = "extreme";
+		description = "Take action now to protect your life and property";
+		emoji = "🔥";
+	} else {
+		level = "catastrophic";
+		description = "For your survival, leave bush fire risk areas";
+		emoji = "💥🔥💥";
+	}
+
+	return {
+		level,
+		score,
+		factors: {
+			expectedPosition,
+			actualPosition,
+			positionsDropped,
+			percentageDropped: Math.round(percentageDropped * 10) / 10, // Round to 1 decimal
+		},
 		description,
 		emoji,
 	};

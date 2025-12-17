@@ -71,8 +71,14 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
 			},
 			{
-				name: `${race.bottleMeter.emoji} • __Bottle-Meter__`,
+				name: `${race.bottleMeter.emoji} • __Bottle-Meter (Overall)__`,
 				value: `Level » \`${race.bottleMeter.level.toUpperCase()}\` (${race.bottleMeter.score}/100)\n${race.bottleMeter.description}`,
+				inline: true,
+			},
+			{
+				name: `${race.michaelsBottleMeter.emoji} • __Michael's Bottle-Meter__`,
+				value: `Level » \`${race.michaelsBottleMeter.level.toUpperCase()}\` (${race.michaelsBottleMeter.score}/100)\nExpected P${race.michaelsBottleMeter.factors.expectedPosition} → P${race.michaelsBottleMeter.factors.actualPosition}`,
+				inline: true,
 			},
 			{
 				name: "🏆 • __Ratings__",

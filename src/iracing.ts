@@ -1,5 +1,8 @@
 import type { IRacingClient } from "./iracing-client";
-import { calculateBottleMeter } from "./bottle-meter";
+import {
+	calculateBottleMeter,
+	calculateMichaelsBottleMeter,
+} from "./bottle-meter";
 
 export const formatLaptime = (laptime: number): string => {
 	const microseconds = laptime * 100;
@@ -79,6 +82,13 @@ export const getLatestRace = async (
 		) ?? [];
 	const entries = classResults.length;
 
+	// Extract all drivers' iRatings and positions for Michael's bottlemeter
+	const allDriversData = classResults.map((res) => ({
+		custId: res.cust_id ?? 0,
+		oldiRating: res.oldi_rating ?? 0,
+		finishPos: res.finish_position_in_class ?? res.finish_position ?? 0,
+	}));
+
 	const driverName = customer.member_info.display_name;
 
 	const startPos = race.start_position;
@@ -117,6 +127,13 @@ export const getLatestRace = async (
 		laps,
 	});
 
+	// Calculate Michael's bottle-meter
+	const michaelsBottleMeter = calculateMichaelsBottleMeter({
+		finishPos,
+		oldiRating: oldIrating,
+		allDriversData,
+	});
+
 	return {
 		driverName,
 		endTime,
@@ -141,6 +158,7 @@ export const getLatestRace = async (
 		race,
 		entries,
 		bottleMeter,
+		michaelsBottleMeter,
 	};
 };
 
