@@ -98,10 +98,10 @@ export const getLatestRace = async (
 
 	const driverName = customer.member_info.display_name;
 
-	// Note: iRacing API doesn't provide starting_position_in_class, so we use overall start position
-	// This may not be class-specific in multi-class races
+	// Note: race.start_position and race.finish_position already represent class positions
+	// when the race data comes from the recent races API
 	const startPos = race.start_position;
-	const finishPos = raceSessionResult?.finish_position_in_class ?? race.finish_position;
+	const finishPos = race.finish_position;
 	const incidents = race.incidents;
 	const newIrating = race.newi_rating;
 	const oldIrating = race.oldi_rating;
