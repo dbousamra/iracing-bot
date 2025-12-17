@@ -50,6 +50,9 @@ interface DriverResult {
 	best_lap_time?: number;
 	best_qual_lap_time?: number;
 	car_class_id?: number;
+	oldi_rating?: number;
+	finish_position?: number;
+	finish_position_in_class?: number;
 }
 
 interface SessionResult {
@@ -328,6 +331,35 @@ export class IRacingClient {
 	}): Promise<SubsessionResults> {
 		return this.request<SubsessionResults>(
 			`/results/get?subsession_id=${options.subsession_id}`,
+		);
+	}
+
+	/**
+	 * Get member career statistics
+	 */
+	async getMemberCareerStats(options: {
+		cust_id: number;
+	}): Promise<MemberCareerStats> {
+		return this.request<MemberCareerStats>(
+			`/stats/member_career?cust_id=${options.cust_id}`,
+		);
+	}
+
+	/**
+	 * Get member summary with this year's session counts
+	 */
+	async getMemberSummary(options: { cust_id: number }): Promise<MemberSummary> {
+		return this.request<MemberSummary>(
+			`/stats/member_summary?cust_id=${options.cust_id}`,
+		);
+	}
+
+	/**
+	 * Get member recap with statistical trends
+	 */
+	async getMemberRecap(options: { cust_id: number }): Promise<MemberRecap> {
+		return this.request<MemberRecap>(
+			`/stats/member_recap?cust_id=${options.cust_id}`,
 		);
 	}
 
