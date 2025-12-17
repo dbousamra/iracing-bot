@@ -50,9 +50,6 @@ interface DriverResult {
 	best_lap_time?: number;
 	best_qual_lap_time?: number;
 	car_class_id?: number;
-	oldi_rating?: number;
-	finish_position?: number;
-	finish_position_in_class?: number;
 }
 
 interface SessionResult {
@@ -135,6 +132,10 @@ export type IRacingClientOptions = {
 };
 
 export class IRacingClient {
+	private accessToken: string | null = null;
+	private refreshToken: string | null = null;
+	private tokenExpiresAt: number | null = null;
+	private refreshTokenExpiresAt: number | null = null;
 	private client: AxiosInstance;
 	private options: IRacingClientOptions;
 
@@ -157,9 +158,38 @@ export class IRacingClient {
 	}
 
 	/**
+	 * Get access token, refreshing if necessary
+	 */
+	private async ensureAuthenticated(): Promise<void> {
+		const now = Date.now();
+
+		// Check if we have a valid access token
+		if (
+			this.accessToken &&
+			this.tokenExpiresAt &&
+			now < this.tokenExpiresAt - 60000
+		) {
+			return;
+		}
+
+		// Check if we can refresh the token
+		if (
+			this.refreshToken &&
+			this.refreshTokenExpiresAt &&
+			now < this.refreshTokenExpiresAt - 60000
+		) {
+			await this.refreshAccessToken();
+			return;
+		}
+
+		// Need to authenticate from scratch
+		await this.authenticate();
+	}
+
+	/**
 	 * Authenticate using password_limited grant
 	 */
-	private async authenticate(): Promise<string> {
+	private async authenticate(): Promise<void> {
 		const hashedPassword = this.hashValue(
 			this.options.password,
 			this.options.username,
@@ -188,7 +218,45 @@ export class IRacingClient {
 			},
 		);
 
-		return response.data.access_token;
+		this.accessToken = response.data.access_token;
+		this.refreshToken = response.data.refresh_token ?? null;
+		this.tokenExpiresAt = Date.now() + response.data.expires_in * 1000;
+		this.refreshTokenExpiresAt = response.data.refresh_token_expires_in
+			? Date.now() + response.data.refresh_token_expires_in * 1000
+			: null;
+	}
+
+	/**
+	 * Refresh access token using refresh_token grant
+	 */
+	private async refreshAccessToken(): Promise<void> {
+		if (!this.refreshToken) {
+			throw new Error("No refresh token available");
+		}
+
+		const params = new URLSearchParams({
+			grant_type: "refresh_token",
+			client_id: this.options.clientId,
+			client_secret: this.options.clientSecret,
+			refresh_token: this.refreshToken,
+		});
+
+		const response = await axios.post<TokenResponse>(
+			`${OAUTH_BASE_URL}/oauth2/token`,
+			params.toString(),
+			{
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+			},
+		);
+
+		this.accessToken = response.data.access_token;
+		this.refreshToken = response.data.refresh_token ?? this.refreshToken;
+		this.tokenExpiresAt = Date.now() + response.data.expires_in * 1000;
+		this.refreshTokenExpiresAt = response.data.refresh_token_expires_in
+			? Date.now() + response.data.refresh_token_expires_in * 1000
+			: this.refreshTokenExpiresAt;
 	}
 
 	/**
@@ -196,14 +264,14 @@ export class IRacingClient {
 	 * The API returns a link to S3 where the actual data is stored
 	 */
 	private async request<T>(endpoint: string): Promise<T> {
-		const accessToken = await this.authenticate();
+		await this.ensureAuthenticated();
 
 		// First request to the data API to get the S3 link
 		const response = await this.client.get<{ link: string; expires: string }>(
 			`${DATA_API_BASE_URL}${endpoint}`,
 			{
 				headers: {
-					Authorization: `Bearer ${accessToken}`,
+					Authorization: `Bearer ${this.accessToken}`,
 				},
 			},
 		);
@@ -253,34 +321,5 @@ export class IRacingClient {
 	async getDoc() {
 		// biome-ignore lint/suspicious/noExplicitAny: No need to type this
 		return this.request<any>("/doc");
-	}
-
-	/**
-	 * Get member career statistics
-	 */
-	async getMemberCareerStats(options: {
-		cust_id: number;
-	}): Promise<MemberCareerStats> {
-		return this.request<MemberCareerStats>(
-			`/stats/member_career?cust_id=${options.cust_id}`,
-		);
-	}
-
-	/**
-	 * Get member summary with this year's session counts
-	 */
-	async getMemberSummary(options: { cust_id: number }): Promise<MemberSummary> {
-		return this.request<MemberSummary>(
-			`/stats/member_summary?cust_id=${options.cust_id}`,
-		);
-	}
-
-	/**
-	 * Get member recap with statistical trends
-	 */
-	async getMemberRecap(options: { cust_id: number }): Promise<MemberRecap> {
-		return this.request<MemberRecap>(
-			`/stats/member_recap?cust_id=${options.cust_id}`,
-		);
 	}
 }
