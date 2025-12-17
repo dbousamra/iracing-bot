@@ -1,5 +1,15 @@
 export type BottleLevel = "moderate" | "high" | "extreme" | "catastrophic";
 
+export type MichaelsBottleLevel =
+	| "world-champion"
+	| "no-bottle"
+	| "low-moderate"
+	| "high"
+	| "very-high"
+	| "severe"
+	| "extreme"
+	| "catastrophic";
+
 export interface BottleMeterResult {
 	level: BottleLevel;
 	score: number; // Raw score 0-100
@@ -13,14 +23,8 @@ export interface BottleMeterResult {
 }
 
 export interface MichaelsBottleMeterResult {
-	level: BottleLevel;
-	score: number; // 0-100
-	factors: {
-		expectedPosition: number;
-		actualPosition: number;
-		positionsDropped: number;
-		percentageDropped: number;
-	};
+	level: MichaelsBottleLevel;
+	levelNumber: number; // 1-8
 	emoji: string;
 }
 
@@ -142,27 +146,25 @@ export const calculateBottleMeter = (raceData: {
 	};
 };
 
+export interface BottleResult {
+	level: MichaelsBottleLevel;
+	levelNumber: number;
+	emoji: string;
+}
+
 export const calculateMichaelsBottleMeter = (raceData: {
 	finishPos: number;
 	oldiRating: number;
 	allDriversData: { custId: number; oldiRating: number; finishPos: number }[];
+	incidents: number;
+	laps: number;
 }): MichaelsBottleMeterResult => {
 	// Filter out drivers with missing or zero iRating
 	const validDrivers = raceData.allDriversData.filter((d) => d.oldiRating > 0);
 
-	// If too few valid drivers, return lowest level
+	// If too few valid drivers, return default level
 	if (validDrivers.length < 3) {
-		return {
-			level: "moderate",
-			score: 0,
-			factors: {
-				expectedPosition: raceData.finishPos,
-				actualPosition: raceData.finishPos,
-				positionsDropped: 0,
-				percentageDropped: 0,
-			},
-			emoji: "❓",
-		};
+		throw new Error("Too few valid drivers");
 	}
 
 	// Sort drivers by starting iRating (descending) to determine expected order
@@ -178,88 +180,68 @@ export const calculateMichaelsBottleMeter = (raceData: {
 		(d) => d.oldiRating === raceData.oldiRating,
 	);
 
-	// If driver not found in results, return lowest level
+	// If driver not found in results, return default level
 	if (driverIndex === -1) {
-		return {
-			level: "moderate",
-			score: 0,
-			factors: {
-				expectedPosition: 0,
-				actualPosition: raceData.finishPos,
-				positionsDropped: 0,
-				percentageDropped: 0,
-			},
-			emoji: "❓",
-		};
+		throw new Error("Driver not found in results");
 	}
 
-	const expectedPosition = driverIndex + 1; // 1-indexed
-	const actualPosition = raceData.finishPos;
-	const positionsDropped = actualPosition - expectedPosition;
+	const rank = driverIndex + 1; // 1-indexed position (expected)
+	const incidents = raceData.incidents;
+	const laps = raceData.laps;
+	const totalCars = validDrivers.length;
+	const position = raceData.finishPos;
 
-	// If driver finished better than or equal to expected, lowest level
-	if (positionsDropped <= 0) {
-		return {
-			level: "moderate",
-			score: 0,
-			factors: {
-				expectedPosition,
-				actualPosition,
-				positionsDropped: 0,
-				percentageDropped: 0,
-			},
-			emoji: "🟢",
-		};
-	}
-
-	// Calculate percentage of field dropped
-	const fieldSize = validDrivers.length;
-	const percentageDropped = (positionsDropped / fieldSize) * 100;
-
-	// Map percentage to 0-100 score
-	let score = 0;
-	if (percentageDropped <= 10) {
-		score = percentageDropped * 1.5; // 0-15
-	} else if (percentageDropped <= 25) {
-		score = 15 + (percentageDropped - 10) * 1.33; // 15-35
-	} else if (percentageDropped <= 50) {
-		score = 35 + (percentageDropped - 25) * 1.0; // 35-60
-	} else if (percentageDropped <= 75) {
-		score = 60 + (percentageDropped - 50) * 0.8; // 60-80
-	} else {
-		score = 80 + (percentageDropped - 75) * 0.8; // 80-100
-	}
-
-	// Round and cap at 100
-	score = Math.min(100, Math.round(score));
-
-	// Determine level (Australian fire warning system)
-	let level: BottleLevel;
-	let emoji: string;
-
-	if (score <= 35) {
-		level = "moderate";
-		emoji = "🟢";
-	} else if (score <= 60) {
-		level = "high";
-		emoji = "🟡";
-	} else if (score <= 80) {
-		level = "extreme";
-		emoji = "🔥";
-	} else {
-		level = "catastrophic";
-		emoji = "💥🔥💥";
-	}
+	const { level, levelNumber, emoji } = calculateMichaelBottleResult({
+		rank,
+		incidents,
+		laps,
+		totalCars,
+		position,
+	});
 
 	return {
 		level,
-		score,
-		factors: {
-			expectedPosition,
-			actualPosition,
-			positionsDropped,
-			percentageDropped: Math.round(percentageDropped * 10) / 10, // Round to 1 decimal
-		},
+		levelNumber,
 		emoji,
 	};
+};
+
+export const calculateMichaelBottleResult = (params: {
+	rank: number;
+	incidents: number;
+	laps: number;
+	totalCars: number;
+	position: number;
+}): MichaelsBottleMeterResult => {
+	const { rank, incidents, laps, totalCars, position } = params;
+
+	if (position <= rank - 0.25 * totalCars) {
+		return { level: "world-champion", levelNumber: 1, emoji: "👑" };
+	}
+
+	if (position <= rank + 0.1 * totalCars && incidents < laps / 10 + 3) {
+		return { level: "no-bottle", levelNumber: 2, emoji: "🟢" };
+	}
+
+	if (position <= rank + 0.2 * totalCars) {
+		return { level: "low-moderate", levelNumber: 3, emoji: "🟡" };
+	}
+
+	if (position <= rank + 0.3 * totalCars) {
+		return { level: "high", levelNumber: 4, emoji: "🟠" };
+	}
+
+	if (position <= rank + 0.4 * totalCars) {
+		return { level: "very-high", levelNumber: 5, emoji: "🔥" };
+	}
+
+	if (position <= rank + 0.5 * totalCars) {
+		return { level: "severe", levelNumber: 6, emoji: "🔥🔥" };
+	}
+
+	if (position <= rank + 0.6 * totalCars) {
+		return { level: "extreme", levelNumber: 7, emoji: "💥🔥" };
+	}
+
+	return { level: "catastrophic", levelNumber: 8, emoji: "💥🔥💥" };
 };

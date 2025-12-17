@@ -8,7 +8,9 @@
       "Bash(ls:*)",
       "Bash(tsx src/scripts/register.ts:*)",
       "Bash(pnpm exec tsx:*)",
-      "Bash(pnpm run cli:*)"
+      "Bash(pnpm run cli:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm test:*)"
     ]
   }
 }

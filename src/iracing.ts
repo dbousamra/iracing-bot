@@ -132,6 +132,8 @@ export const getLatestRace = async (
 		finishPos,
 		oldiRating: oldIrating,
 		allDriversData,
+		incidents,
+		laps,
 	});
 
 	return {

@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "cli": "tsx src/scripts/cli.ts"
+    "cli": "tsx src/scripts/cli.ts",
+    "test": "vitest tests"
   },
   "keywords": [],
   "author": "",
@@ -15,7 +16,8 @@
   "devDependencies": {
     "@tsconfig/recommended": "^1.0.8",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.16"
   },
   "dependencies": {
     "@biomejs/biome": "^1.9.4",
