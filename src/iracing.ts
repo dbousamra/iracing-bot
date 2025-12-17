@@ -89,10 +89,19 @@ export const getLatestRace = async (
 		finishPos: res.finish_position_in_class ?? res.finish_position ?? 0,
 	}));
 
+	// Calculate rank within class by iRating
+	const sortedByIrating = [...classResults].sort(
+		(a, b) => (b.oldi_rating ?? 0) - (a.oldi_rating ?? 0),
+	);
+	const iRatingRank =
+		sortedByIrating.findIndex((res) => res.cust_id === customerId) + 1;
+
 	const driverName = customer.member_info.display_name;
 
+	// Note: iRacing API doesn't provide starting_position_in_class, so we use overall start position
+	// This may not be class-specific in multi-class races
 	const startPos = race.start_position;
-	const finishPos = race.finish_position;
+	const finishPos = raceSessionResult?.finish_position_in_class ?? race.finish_position;
 	const incidents = race.incidents;
 	const newIrating = race.newi_rating;
 	const oldIrating = race.oldi_rating;
@@ -159,6 +168,7 @@ export const getLatestRace = async (
 		color,
 		race,
 		entries,
+		iRatingRank,
 		bottleMeter,
 		michaelsBottleMeter,
 	};
