@@ -185,12 +185,15 @@ export class IRacingClient {
 		) {
 			log("Refreshing access token");
 			await this.refreshAccessToken();
+			log("Access token refreshed");
 			return;
 		}
 
 		// Need to authenticate from scratch
 		log("Authenticating from scratch");
 		await this.authenticate();
+		log("Authenticated from scratch");
+		return;
 	}
 
 	/**
