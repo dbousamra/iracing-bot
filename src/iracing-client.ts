@@ -173,7 +173,10 @@ export class IRacingClient {
 			this.tokenExpiresAt &&
 			now < this.tokenExpiresAt - 60000
 		) {
-			log("Access token is still valid");
+			const timeUntilExpiry = Math.floor(
+				(this.tokenExpiresAt - now) / 1000 / 60,
+			);
+			log(`Access token is still valid (expires in ${timeUntilExpiry} minutes)`);
 			return;
 		}
 
@@ -183,17 +186,18 @@ export class IRacingClient {
 			this.refreshTokenExpiresAt &&
 			now < this.refreshTokenExpiresAt - 60000
 		) {
-			log("Refreshing access token");
+			log("Access token expired, using refresh token");
 			await this.refreshAccessToken();
-			log("Access token refreshed");
 			return;
 		}
 
 		// Need to authenticate from scratch
-		log("Authenticating from scratch");
+		if (this.refreshToken) {
+			log("Refresh token expired, authenticating from scratch");
+		} else {
+			log("No tokens available, authenticating from scratch");
+		}
 		await this.authenticate();
-		log("Authenticated from scratch");
-		return;
 	}
 
 	/**
@@ -252,12 +256,20 @@ export class IRacingClient {
 			throw new Error("No refresh token available");
 		}
 
+		// Hash the client secret just like in authenticate()
+		const hashedClientSecret = this.hashValue(
+			this.options.clientSecret,
+			this.options.clientId,
+		);
+
 		const params = new URLSearchParams({
 			grant_type: "refresh_token",
 			client_id: this.options.clientId,
-			client_secret: this.options.clientSecret,
+			client_secret: hashedClientSecret,
 			refresh_token: this.refreshToken,
 		});
+
+		log("Attempting to refresh token...");
 
 		const response = await axios.post<TokenResponse>(
 			`${OAUTH_BASE_URL}/oauth2/token`,
@@ -268,6 +280,11 @@ export class IRacingClient {
 				},
 			},
 		);
+
+		log("Token refresh successful:", {
+			expires_in: response.data.expires_in,
+			refresh_token_expires_in: response.data.refresh_token_expires_in,
+		});
 
 		this.accessToken = response.data.access_token;
 		this.refreshToken = response.data.refresh_token ?? this.refreshToken;
