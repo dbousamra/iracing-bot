@@ -135,7 +135,6 @@ export type IRacingClientOptions = {
 };
 
 export class IRacingClient {
-	private accessToken: string | null = null;
 	private client: AxiosInstance;
 	private options: IRacingClientOptions;
 
@@ -160,7 +159,7 @@ export class IRacingClient {
 	/**
 	 * Authenticate using password_limited grant
 	 */
-	private async authenticate(): Promise<void> {
+	private async authenticate(): Promise<string> {
 		const hashedPassword = this.hashValue(
 			this.options.password,
 			this.options.username,
@@ -189,7 +188,7 @@ export class IRacingClient {
 			},
 		);
 
-		this.accessToken = response.data.access_token;
+		return response.data.access_token;
 	}
 
 	/**
@@ -197,14 +196,14 @@ export class IRacingClient {
 	 * The API returns a link to S3 where the actual data is stored
 	 */
 	private async request<T>(endpoint: string): Promise<T> {
-		await this.authenticate();
+		const accessToken = await this.authenticate();
 
 		// First request to the data API to get the S3 link
 		const response = await this.client.get<{ link: string; expires: string }>(
 			`${DATA_API_BASE_URL}${endpoint}`,
 			{
 				headers: {
-					Authorization: `Bearer ${this.accessToken}`,
+					Authorization: `Bearer ${accessToken}`,
 				},
 			},
 		);
