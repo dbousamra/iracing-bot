@@ -15,6 +15,7 @@ run(async () => {
 		clientId: config.IRACING_CLIENT_ID,
 		clientSecret: config.IRACING_CLIENT_SECRET,
 	});
+	await iRacingClient.authenticate();
 
 	const discordClient = new Client({
 		intents: [

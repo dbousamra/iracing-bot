@@ -169,6 +169,7 @@ export class IRacingClient {
 			this.tokenExpiresAt &&
 			now < this.tokenExpiresAt - 60000
 		) {
+			console.log("Access token is still valid");
 			return;
 		}
 
@@ -178,18 +179,20 @@ export class IRacingClient {
 			this.refreshTokenExpiresAt &&
 			now < this.refreshTokenExpiresAt - 60000
 		) {
+			console.log("Refreshing access token");
 			await this.refreshAccessToken();
 			return;
 		}
 
 		// Need to authenticate from scratch
+		console.log("Authenticating from scratch");
 		await this.authenticate();
 	}
 
 	/**
 	 * Authenticate using password_limited grant
 	 */
-	private async authenticate(): Promise<void> {
+	async authenticate(): Promise<void> {
 		const hashedPassword = this.hashValue(
 			this.options.password,
 			this.options.username,
@@ -215,6 +218,19 @@ export class IRacingClient {
 				headers: {
 					"Content-Type": "application/x-www-form-urlencoded",
 				},
+			},
+		);
+
+		console.log(
+			"Received token response:",
+			{
+				expires_in: response.data.expires_in,
+				refresh_token_expires_in: response.data.refresh_token_expires_in,
+			},
+			{
+				limit: response.headers["ratelimit-limit"],
+				remaining: response.headers["ratelimit-remaining"],
+				reset: response.headers["ratelimit-reset"],
 			},
 		);
 
