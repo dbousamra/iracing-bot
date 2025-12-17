@@ -77,7 +77,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 			},
 			{
 				name: `${race.michaelsBottleMeter.emoji} • Bottle-Meter (Michael's)`,
-				value: `Level » \`${race.michaelsBottleMeter.level.toUpperCase()}\` (${race.michaelsBottleMeter.score}/100)\nExpected P${race.michaelsBottleMeter.factors.expectedPosition} → P${race.michaelsBottleMeter.factors.actualPosition}`,
+				value: `Level » \`${race.michaelsBottleMeter.level.toUpperCase()}\` (${race.michaelsBottleMeter.score}/100)`,
 				inline: true,
 			},
 			{
