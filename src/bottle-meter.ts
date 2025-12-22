@@ -2,7 +2,7 @@ export type BottleLevel = "moderate" | "high" | "extreme" | "catastrophic";
 
 export type MichaelsBottleLevel =
 	| "world-champion-hotline"
-	| "no-bottle"
+	| "no-bottleo"
 	| "low-moderate"
 	| "high"
 	| "very-high"
@@ -26,6 +26,7 @@ export interface MichaelsBottleMeterResult {
 	level: MichaelsBottleLevel;
 	levelNumber: number; // 1-8
 	emoji: string;
+	explanation: string;
 }
 
 export const calculateBottleMeter = (raceData: {
@@ -150,6 +151,7 @@ export interface BottleResult {
 	level: MichaelsBottleLevel;
 	levelNumber: number;
 	emoji: string;
+	explanation: string;
 }
 
 export const calculateMichaelsBottleMeter = (raceData: {
@@ -191,7 +193,7 @@ export const calculateMichaelsBottleMeter = (raceData: {
 	const totalCars = validDrivers.length;
 	const position = raceData.finishPos;
 
-	const { level, levelNumber, emoji } = calculateMichaelBottleResult({
+	const { level, levelNumber, emoji, explanation } = calculateMichaelBottleResult({
 		rank,
 		incidents,
 		laps,
@@ -203,6 +205,7 @@ export const calculateMichaelsBottleMeter = (raceData: {
 		level,
 		levelNumber,
 		emoji,
+		explanation,
 	};
 };
 
@@ -215,33 +218,76 @@ export const calculateMichaelBottleResult = (params: {
 }): MichaelsBottleMeterResult => {
 	const { rank, incidents, laps, totalCars, position } = params;
 
+	const positionDiff = position - rank;
+	const expectedIncidents = Math.round(laps / 10 + 3);
+
 	if (position <= rank - 0.25 * totalCars) {
-		return { level: "world-champion-hotline", levelNumber: 1, emoji: "👑" };
+		return {
+			level: "world-champion-hotline",
+			levelNumber: 1,
+			emoji: "👑",
+			explanation: `Finished P${position}, ${Math.abs(positionDiff)} places better than expected (P${rank}). Absolutely elite performance, finished ${Math.round(0.25 * totalCars)}+ positions above iRating expectation.`,
+		};
 	}
 
 	if (position <= rank + 0.1 * totalCars && incidents < laps / 10 + 3) {
-		return { level: "no-bottle", levelNumber: 2, emoji: "🟢" };
+		return {
+			level: "no-bottleo",
+			levelNumber: 2,
+			emoji: "🟢",
+			explanation: `Finished P${position}, ${positionDiff >= 0 ? `${positionDiff} places behind` : `${Math.abs(positionDiff)} places ahead of`} expected (P${rank}). Clean race with ${incidents} incidents (under ${expectedIncidents} threshold). Well driven.`,
+		};
 	}
 
 	if (position <= rank + 0.2 * totalCars) {
-		return { level: "low-moderate", levelNumber: 3, emoji: "🟡" };
+		return {
+			level: "low-moderate",
+			levelNumber: 3,
+			emoji: "🟡",
+			explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). ${incidents >= expectedIncidents ? `${incidents} incidents (over ${expectedIncidents} threshold) contributed to underperformance.` : "Slight underperformance relative to iRating."}`,
+		};
 	}
 
 	if (position <= rank + 0.3 * totalCars) {
-		return { level: "high", levelNumber: 4, emoji: "🟠" };
+		return {
+			level: "high",
+			levelNumber: 4,
+			emoji: "🟠",
+			explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). Finished ${Math.round(0.2 * totalCars)}-${Math.round(0.3 * totalCars)} positions below iRating expectation. ${incidents} incidents in ${laps} laps.`,
+		};
 	}
 
 	if (position <= rank + 0.4 * totalCars) {
-		return { level: "very-high", levelNumber: 5, emoji: "🔥" };
+		return {
+			level: "very-high",
+			levelNumber: 5,
+			emoji: "🔥",
+			explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). Significantly underperformed iRating expectation by ${Math.round(0.3 * totalCars)}-${Math.round(0.4 * totalCars)} positions. ${incidents} incidents.`,
+		};
 	}
 
 	if (position <= rank + 0.5 * totalCars) {
-		return { level: "severe", levelNumber: 6, emoji: "🔥🔥" };
+		return {
+			level: "severe",
+			levelNumber: 6,
+			emoji: "🔥🔥",
+			explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). Severely underperformed by ${Math.round(0.4 * totalCars)}-${Math.round(0.5 * totalCars)} positions. ${incidents} incidents suggest significant race struggles.`,
+		};
 	}
 
 	if (position <= rank + 0.6 * totalCars) {
-		return { level: "extreme", levelNumber: 7, emoji: "💥🔥" };
+		return {
+			level: "extreme",
+			levelNumber: 7,
+			emoji: "💥🔥",
+			explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). Extreme underperformance dropping ${Math.round(0.5 * totalCars)}-${Math.round(0.6 * totalCars)} positions below expectation. ${incidents} incidents in ${laps} laps.`,
+		};
 	}
 
-	return { level: "catastrophic", levelNumber: 8, emoji: "💥🔥💥" };
+	return {
+		level: "catastrophic",
+		levelNumber: 8,
+		emoji: "💥🔥💥",
+		explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). Catastrophic race dropping ${Math.round(0.6 * totalCars)}+ positions below iRating expectation. ${incidents} incidents - things went very wrong.`,
+	};
 };
