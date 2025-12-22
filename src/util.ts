@@ -54,7 +54,7 @@ export const deployCommands = async (props: {
 };
 
 export const createRaceEmbed = (race: GetLatestRaceResponse) => {
-	return new EmbedBuilder()
+	const embed = new EmbedBuilder()
 		.setTitle(`${race.driverName}'s race results`)
 		.setColor(race.color)
 		.addFields(
@@ -90,6 +90,15 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 			},
 		)
 		.setTimestamp(new Date(race.race.session_start_time));
+
+	// Add Zak Brown image when world-champion-hotline is achieved
+	if (race.michaelsBottleMeter.level === "world-champion-hotline") {
+		embed.setImage(
+			"https://news.dupontregistry.com/wp-content/uploads/2025/11/Zak-Brown-scaled.jpg",
+		);
+	}
+
+	return embed;
 };
 
 export const createCareerStatsEmbed = (stats: GetCareerStatsResponse) => {

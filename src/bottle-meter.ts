@@ -1,7 +1,7 @@
 export type BottleLevel = "moderate" | "high" | "extreme" | "catastrophic";
 
 export type MichaelsBottleLevel =
-	| "world-champion"
+	| "world-champion-hotline"
 	| "no-bottle"
 	| "low-moderate"
 	| "high"
@@ -216,7 +216,7 @@ export const calculateMichaelBottleResult = (params: {
 	const { rank, incidents, laps, totalCars, position } = params;
 
 	if (position <= rank - 0.25 * totalCars) {
-		return { level: "world-champion", levelNumber: 1, emoji: "👑" };
+		return { level: "world-champion-hotline", levelNumber: 1, emoji: "👑" };
 	}
 
 	if (position <= rank + 0.1 * totalCars && incidents < laps / 10 + 3) {
