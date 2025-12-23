@@ -38,6 +38,8 @@ interface RecentRace {
 	laps: number;
 	car_class_id: number;
 	session_start_time: string;
+	season_year: number;
+	season_quarter: number;
 }
 
 interface RecentRaces {
@@ -126,6 +128,38 @@ interface MemberRecap {
 		top5: number;
 		wins: number;
 	};
+}
+
+interface SearchSeriesResult {
+	car_class_id: number;
+	car_id: number;
+	finish_position: number;
+	finish_position_in_class: number;
+	incidents: number;
+	laps_complete: number;
+	newi_rating: number;
+	oldi_rating: number;
+	new_sub_level: number;
+	old_sub_level: number;
+	season_id: number;
+	season_quarter: number;
+	season_year: number;
+	series_id: number;
+	series_name: string;
+	start_position: number;
+	start_position_in_class: number;
+	subsession_id: number;
+	event_strength_of_field: number;
+	start_time: string;
+	end_time: string;
+	track: {
+		track_id: number;
+		track_name: string;
+	};
+}
+
+interface SearchSeriesResponse {
+	data: SearchSeriesResult[];
 }
 
 export type IRacingClientOptions = {
@@ -376,6 +410,34 @@ export class IRacingClient {
 	async getMemberRecap(options: { cust_id: number }): Promise<MemberRecap> {
 		return this.request<MemberRecap>(
 			`/stats/member_recap?cust_id=${options.cust_id}`,
+		);
+	}
+
+	/**
+	 * Search for series results with optional filters
+	 */
+	async searchSeries(options: {
+		cust_id: number;
+		season_year?: number;
+		season_quarter?: number;
+		official_only?: boolean;
+	}): Promise<SearchSeriesResponse> {
+		const params = new URLSearchParams({
+			cust_id: options.cust_id.toString(),
+		});
+
+		if (options.season_year !== undefined) {
+			params.append("season_year", options.season_year.toString());
+		}
+		if (options.season_quarter !== undefined) {
+			params.append("season_quarter", options.season_quarter.toString());
+		}
+		if (options.official_only !== undefined) {
+			params.append("official_only", options.official_only ? "1" : "0");
+		}
+
+		return this.request<SearchSeriesResponse>(
+			`/results/search_series?${params.toString()}`,
 		);
 	}
 

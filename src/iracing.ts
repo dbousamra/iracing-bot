@@ -299,11 +299,80 @@ export const getRecentForm = async (
 
 	const driverName = customer.member_info.display_name;
 
-	// Note: The iRacing API doesn't support pagination for this endpoint.
-	// We request up to 50 races, but the API may return fewer depending on
-	// what's available for this member.
 	const maxRaces = 50;
-	const racesToAnalyze = recentRaces.races.slice(0, maxRaces);
+	let allRaces = [...recentRaces.races];
+
+	// If we don't have enough races, fetch more from older seasons
+	if (allRaces.length < maxRaces) {
+		// Get the oldest race to determine where to start fetching
+		const oldestRace = allRaces[allRaces.length - 1];
+		if (oldestRace) {
+			let currentYear = oldestRace.season_year;
+			let currentQuarter = oldestRace.season_quarter - 1; // Start with previous quarter
+
+			// Keep fetching until we have 50 races or run out of seasons to check
+			while (allRaces.length < maxRaces && currentYear >= 2024) {
+				// Don't go too far back
+				// Handle quarter rollover
+				if (currentQuarter < 1) {
+					currentQuarter = 4;
+					currentYear--;
+				}
+
+				try {
+					const searchResults = await iRacingClient.searchSeries({
+						cust_id: customerId,
+						season_year: currentYear,
+						season_quarter: currentQuarter,
+					});
+
+					// Convert search results to the same format as recent races
+					const convertedRaces = searchResults.data.map((result) => ({
+						subsession_id: result.subsession_id,
+						start_position: result.start_position_in_class || result.start_position,
+						finish_position:
+							result.finish_position_in_class || result.finish_position,
+						incidents: result.incidents,
+						newi_rating: result.newi_rating,
+						oldi_rating: result.oldi_rating,
+						old_sub_level: result.old_sub_level,
+						new_sub_level: result.new_sub_level,
+						series_name: result.series_name,
+						strength_of_field: result.event_strength_of_field,
+						track: {
+							track_name: result.track.track_name,
+						},
+						laps: result.laps_complete,
+						car_class_id: result.car_class_id,
+						session_start_time: result.start_time,
+						season_year: result.season_year,
+						season_quarter: result.season_quarter,
+					}));
+
+					// Filter out duplicates (races we already have)
+					const existingSubsessionIds = new Set(
+						allRaces.map((r) => r.subsession_id),
+					);
+					const newRaces = convertedRaces.filter(
+						(r) => !existingSubsessionIds.has(r.subsession_id),
+					);
+
+					allRaces = [...allRaces, ...newRaces];
+				} catch (error) {
+					// If we get an error (e.g., no data for this season), continue to next
+					console.error(
+						`Failed to fetch races for ${currentYear} Q${currentQuarter}:`,
+						error,
+					);
+				}
+
+				currentQuarter--;
+			}
+		}
+	}
+
+	// Take up to 50 races
+	const racesToAnalyze = allRaces.slice(0, maxRaces);
 
 	// Calculate trend metrics
 	const raceMetrics = racesToAnalyze.map((race) => {
