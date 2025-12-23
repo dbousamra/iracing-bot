@@ -282,7 +282,7 @@ export const getCareerStats = async (
 export type GetCareerStatsResponse = Awaited<ReturnType<typeof getCareerStats>>;
 
 /**
- * Get recent form with trend analysis for last 10 races
+ * Get recent form with trend analysis for up to 50 recent races
  */
 export const getRecentForm = async (
 	iRacingClient: IRacingClient,
@@ -292,21 +292,24 @@ export const getRecentForm = async (
 ) => {
 	const { customerId } = options;
 
-	const [customer, recentRaces, recap] = await Promise.all([
+	const [customer, recentRaces] = await Promise.all([
 		iRacingClient.getMemberProfile({ cust_id: customerId }),
 		iRacingClient.getRecentRaces({ cust_id: customerId }),
-		iRacingClient.getMemberRecap({ cust_id: customerId }),
 	]);
 
 	const driverName = customer.member_info.display_name;
 
-	// Take last 10 races
-	const last5Races = recentRaces.races.slice(0, 5);
+	// Note: The iRacing API doesn't support pagination for this endpoint.
+	// We request up to 50 races, but the API may return fewer depending on
+	// what's available for this member.
+	const maxRaces = 50;
+	const racesToAnalyze = recentRaces.races.slice(0, maxRaces);
 
 	// Calculate trend metrics
-	const raceMetrics = last5Races.map((race) => {
+	const raceMetrics = racesToAnalyze.map((race) => {
 		const iratingChange = race.newi_rating - race.oldi_rating;
 		const positionChange = race.start_position - race.finish_position;
+		const srChange = (race.new_sub_level - race.old_sub_level) / 100;
 		return {
 			subsessionId: race.subsession_id,
 			series: race.series_name,
@@ -319,6 +322,7 @@ export const getRecentForm = async (
 			incidents: race.incidents,
 			sof: race.strength_of_field,
 			sessionStartTime: race.session_start_time,
+			srChange,
 		};
 	});
 
@@ -340,12 +344,26 @@ export const getRecentForm = async (
 	const avgSof =
 		raceMetrics.reduce((acc, race) => acc + race.sof, 0) / raceMetrics.length;
 
+	// Calculate SR metrics
+	const totalSrChange = raceMetrics.reduce(
+		(acc, race) => acc + race.srChange,
+		0,
+	);
+	const avgSrChange = (totalSrChange / raceMetrics.length).toFixed(2);
+
 	const wins = raceMetrics.filter((r) => r.finishPos === 1).length;
 	const top5 = raceMetrics.filter((r) => r.finishPos <= 5).length;
 	const positionsGained = raceMetrics.reduce(
 		(acc, race) => acc + Math.max(0, race.positionChange),
 		0,
 	);
+
+	// Calculate number of races in last 30 days
+	const thirtyDaysAgo = new Date();
+	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+	const racesLast30Days = raceMetrics.filter(
+		(race) => new Date(race.sessionStartTime) >= thirtyDaysAgo,
+	).length;
 
 	// Determine trend color: green if gaining iRating, red if losing
 	const trendColor = totalIratingChange >= 0 ? 0x00ff00 : 0xff0000;
@@ -364,11 +382,13 @@ export const getRecentForm = async (
 			avgStartPos: avgStartPos.toFixed(1),
 			avgIncidents: avgIncidents.toFixed(2),
 			avgSof: Math.round(avgSof),
+			totalSrChange: totalSrChange.toFixed(2),
+			avgSrChange,
+			racesLast30Days,
 			wins,
 			top5,
 			positionsGained,
 		},
-		recap,
 		trendColor,
 	};
 };

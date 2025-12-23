@@ -109,16 +109,19 @@ League Wins: ${stats.thisYearStats.num_league_wins}`,
 
 const displayRecentForm = async (customerId: number) => {
 	const form = await getRecentForm(iRacingClient, { customerId });
+	const raceCount = form.raceMetrics.length;
 
-	console.log(`\n📈 ${form.driverName}'s Recent Form (Last 10 Races)`);
+	console.log(`\n📈 ${form.driverName}'s Recent Form (${raceCount} Races)`);
 
 	formatSection(
 		"Trend Analysis",
 		`Current iRating: ${form.currentIrating}
 Total iR Change: ${form.trends.totalIratingChange >= 0 ? "+" : ""}${form.trends.totalIratingChange}
 Avg iR Change/Race: ${Number(form.trends.avgIratingChange) >= 0 ? "+" : ""}${form.trends.avgIratingChange}
-Wins: ${form.trends.wins}/10
-Top 5s: ${form.trends.top5}/10`,
+Total SR Change: ${Number(form.trends.totalSrChange) >= 0 ? "+" : ""}${form.trends.totalSrChange}
+Avg SR Change/Race: ${Number(form.trends.avgSrChange) >= 0 ? "+" : ""}${form.trends.avgSrChange}
+Wins: ${form.trends.wins}/${raceCount}
+Top 5s: ${form.trends.top5}/${raceCount}`,
 	);
 
 	formatSection(
@@ -127,37 +130,9 @@ Top 5s: ${form.trends.top5}/10`,
 Avg Start: P${form.trends.avgStartPos}
 Avg Incidents: ${form.trends.avgIncidents}
 Avg SOF: ${form.trends.avgSof}
-Positions Gained: ${form.trends.positionsGained}`,
+Positions Gained: ${form.trends.positionsGained}
+Races in Last 30 Days: ${form.trends.racesLast30Days}`,
 	);
-
-	formatSection(
-		"⭐ Preferences",
-		`Favorite Car: ${form.recap.stats.favorite_car.car_name}
-Favorite Track: ${form.recap.stats.favorite_track.track_name}`,
-	);
-
-	console.log(`\n${"=".repeat(60)}`);
-	console.log("  🏁 Race History");
-	console.log(`${"=".repeat(60)}`);
-
-	for (const [index, race] of form.raceMetrics.entries()) {
-		const posChange = race.positionChange;
-		const posChangeStr =
-			posChange > 0 ? `+${posChange}` : posChange < 0 ? `${posChange}` : "±0";
-		const irChangeStr =
-			race.iratingChange > 0
-				? `+${race.iratingChange}`
-				: `${race.iratingChange}`;
-		const trendEmoji = posChange > 0 ? "📈" : posChange < 0 ? "📉" : "➡️";
-
-		console.log(`\n${index + 1}. ${race.series}`);
-		console.log(
-			`   Position: P${race.startPos} → P${race.finishPos} ${trendEmoji} (${posChangeStr})`,
-		);
-		console.log(
-			`   iRating: ${irChangeStr} | Inc: ${race.incidents} | SOF: ${race.sof}`,
-		);
-	}
 
 	console.log();
 };

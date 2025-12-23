@@ -133,50 +133,18 @@ export const createCareerStatsEmbed = (stats: GetCareerStatsResponse) => {
 };
 
 export const createRecentFormEmbed = (form: GetRecentFormResponse) => {
-	// Create a summary of last 10 races
-	const raceSummary = form.raceMetrics
-		.map((race, index) => {
-			const posChange = race.positionChange;
-			const posChangeStr =
-				posChange > 0 ? `+${posChange}` : posChange < 0 ? `${posChange}` : "±0";
-			const irChangeStr =
-				race.iratingChange > 0
-					? `+${race.iratingChange}`
-					: `${race.iratingChange}`;
-
-			// Use emoji for position trends
-			const trendEmoji = posChange > 0 ? "📈" : posChange < 0 ? "📉" : "➡️";
-
-			return `${index + 1}. **${race.series}**\n   Position: \`P${race.startPos} → P${race.finishPos}\` ${trendEmoji} (\`${posChangeStr}\`)\n   iRating: \`${irChangeStr}\` | Inc: \`${race.incidents}\` | SOF: \`${race.sof}\``;
-		})
-		.join("\n\n");
-
-	// Favorite car and track from recap
-	const favoriteCarName = form.recap.stats.favorite_car.car_name;
-	const favoriteTrackName = form.recap.stats.favorite_track.track_name;
-
+	const raceCount = form.raceMetrics.length;
 	return new EmbedBuilder()
-		.setTitle(`${form.driverName}'s Recent Form (Last 10 Races)`)
+		.setTitle(`${form.driverName}'s Recent Form (${raceCount} Races)`)
 		.setColor(form.trendColor)
 		.addFields(
 			{
 				name: "📈 • __Trend Analysis__",
-				value: `Current iRating » \`${form.currentIrating}\`\nTotal iR Change » \`${form.trends.totalIratingChange >= 0 ? "+" : ""}${form.trends.totalIratingChange}\`\nAvg iR Change/Race » \`${Number(form.trends.avgIratingChange) >= 0 ? "+" : ""}${form.trends.avgIratingChange}\`\nWins » \`${form.trends.wins}/10\`\nTop 5s » \`${form.trends.top5}/10\``,
+				value: `Current iRating » \`${form.currentIrating}\`\nTotal iR Change » \`${form.trends.totalIratingChange >= 0 ? "+" : ""}${form.trends.totalIratingChange}\`\nAvg iR Change/Race » \`${Number(form.trends.avgIratingChange) >= 0 ? "+" : ""}${form.trends.avgIratingChange}\`\nTotal SR Change » \`${Number(form.trends.totalSrChange) >= 0 ? "+" : ""}${form.trends.totalSrChange}\`\nAvg SR Change/Race » \`${Number(form.trends.avgSrChange) >= 0 ? "+" : ""}${form.trends.avgSrChange}\`\nWins » \`${form.trends.wins}/${raceCount}\`\nTop 5s » \`${form.trends.top5}/${raceCount}\``,
 			},
 			{
 				name: "📊 • __Average Performance__",
-				value: `Avg Finish » \`P${form.trends.avgFinishPos}\`\nAvg Start » \`P${form.trends.avgStartPos}\`\nAvg Incidents » \`${form.trends.avgIncidents}\`\nAvg SOF » \`${form.trends.avgSof}\`\nPositions Gained » \`${form.trends.positionsGained}\``,
-			},
-			{
-				name: "⭐ • __Preferences__",
-				value: `Favorite Car » \`${favoriteCarName}\`\nFavorite Track » \`${favoriteTrackName}\``,
-			},
-			{
-				name: "🏁 • __Race History__",
-				value:
-					raceSummary.length > 1024
-						? `${raceSummary.substring(0, 1021)}...`
-						: raceSummary,
+				value: `Avg Finish » \`P${form.trends.avgFinishPos}\`\nAvg Start » \`P${form.trends.avgStartPos}\`\nAvg Incidents » \`${form.trends.avgIncidents}\`\nAvg SOF » \`${form.trends.avgSof}\`\nPositions Gained » \`${form.trends.positionsGained}\`\nRaces in Last 30 Days » \`${form.trends.racesLast30Days}\``,
 			},
 		)
 		.setTimestamp();
