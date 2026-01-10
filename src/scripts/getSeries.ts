@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { config } from "../config";
 import { getLatestRace } from "../iracing";
 import { IRacingClient } from "../iracing-client";
@@ -11,16 +10,10 @@ const run = async () => {
 		clientSecret: config.IRACING_CLIENT_SECRET,
 	});
 
-	// const x = await getLatestRace(iRacingClient, {
-	// 	customerId: 404007,
-	// });
-
-	// console.log(x.qualifyingTime);
-	// console.log(x.averageLapTime);
-	// console.log(x.bestLapTime);
-
-	const doc = await iRacingClient.getDoc();
-	fs.writeFileSync("doc.json", JSON.stringify(doc, null, 2));
+	const latestRace = await getLatestRace(iRacingClient, {
+		customerId: 404007,
+	});
+	console.log(latestRace);
 };
 
 run();

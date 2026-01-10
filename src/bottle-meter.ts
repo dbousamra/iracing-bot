@@ -161,8 +161,7 @@ export const calculateMichaelsBottleMeter = (raceData: {
 	incidents: number;
 	laps: number;
 }): MichaelsBottleMeterResult => {
-	// Filter out drivers with missing or zero iRating
-	const validDrivers = raceData.allDriversData.filter((d) => d.oldiRating > 0);
+	const validDrivers = raceData.allDriversData;
 
 	// If too few valid drivers, return default level
 	if (validDrivers.length < 3) {
@@ -193,13 +192,14 @@ export const calculateMichaelsBottleMeter = (raceData: {
 	const totalCars = validDrivers.length;
 	const position = raceData.finishPos;
 
-	const { level, levelNumber, emoji, explanation } = calculateMichaelBottleResult({
-		rank,
-		incidents,
-		laps,
-		totalCars,
-		position,
-	});
+	const { level, levelNumber, emoji, explanation } =
+		calculateMichaelBottleResult({
+			rank,
+			incidents,
+			laps,
+			totalCars,
+			position,
+		});
 
 	return {
 		level,

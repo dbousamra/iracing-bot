@@ -1,8 +1,8 @@
-import type { IRacingClient } from "./iracing-client";
 import {
 	calculateBottleMeter,
 	calculateMichaelsBottleMeter,
 } from "./bottle-meter";
+import type { IRacingClient } from "./iracing-client";
 
 export const formatLaptime = (laptime: number): string => {
 	const microseconds = laptime * 100;
@@ -85,7 +85,7 @@ export const getLatestRace = async (
 	// Extract all drivers' iRatings and positions for Michael's bottlemeter
 	const allDriversData = classResults.map((res) => ({
 		custId: res.cust_id ?? 0,
-		oldiRating: res.oldi_rating ?? 0,
+		oldiRating: res.oldi_rating < 0 ? 0 : res.oldi_rating,
 		finishPos: res.finish_position_in_class ?? res.finish_position ?? 0,
 	}));
 

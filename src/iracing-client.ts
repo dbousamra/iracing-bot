@@ -53,7 +53,7 @@ interface DriverResult {
 	best_lap_time?: number;
 	best_qual_lap_time?: number;
 	car_class_id?: number;
-	oldi_rating?: number;
+	oldi_rating: number;
 	finish_position?: number;
 	finish_position_in_class?: number;
 }
@@ -210,7 +210,9 @@ export class IRacingClient {
 			const timeUntilExpiry = Math.floor(
 				(this.tokenExpiresAt - now) / 1000 / 60,
 			);
-			log(`Access token is still valid (expires in ${timeUntilExpiry} minutes)`);
+			log(
+				`Access token is still valid (expires in ${timeUntilExpiry} minutes)`,
+			);
 			return;
 		}
 
@@ -336,23 +338,38 @@ export class IRacingClient {
 		await this.ensureAuthenticated();
 
 		// First request to the data API to get the S3 link
-		const response = await this.client.get<{ link: string; expires: string }>(
-			`${DATA_API_BASE_URL}${endpoint}`,
-			{
-				headers: {
-					Authorization: `Bearer ${this.accessToken}`,
-				},
+		const response = await this.client.get<{
+			link?: string;
+			expires: string;
+			data: {
+				chunk_info?: { base_download_url: string; chunk_file_names: string[] };
+			};
+		}>(`${DATA_API_BASE_URL}${endpoint}`, {
+			headers: {
+				Authorization: `Bearer ${this.accessToken}`,
 			},
-		);
-
-		if (!response.data.link) {
-			return response.data as T;
-		}
+		});
 
 		// Second request to fetch the actual data from S3
-		const dataResponse = await this.client.get<T>(response.data.link);
+		if (response.data.link) {
+			const dataResponse = await this.client.get<T>(response.data.link);
+			return dataResponse.data;
+		}
 
-		return dataResponse.data;
+		if (response.data.data?.chunk_info) {
+			const { base_download_url, chunk_file_names } =
+				response.data.data.chunk_info;
+
+			const chunks = await Promise.all(
+				chunk_file_names.map((chunk) =>
+					this.client.get<T>(`${base_download_url}${chunk}`),
+				),
+			);
+
+			return chunks.flatMap((chunk) => chunk.data) as T;
+		}
+
+		return response.data as T;
 	}
 
 	/**
@@ -421,6 +438,8 @@ export class IRacingClient {
 		season_year?: number;
 		season_quarter?: number;
 		official_only?: boolean;
+		start_range_begin?: number;
+		start_range_end?: number;
 	}): Promise<SearchSeriesResponse> {
 		const params = new URLSearchParams({
 			cust_id: options.cust_id.toString(),
@@ -429,11 +448,21 @@ export class IRacingClient {
 		if (options.season_year !== undefined) {
 			params.append("season_year", options.season_year.toString());
 		}
+
 		if (options.season_quarter !== undefined) {
 			params.append("season_quarter", options.season_quarter.toString());
 		}
+
 		if (options.official_only !== undefined) {
 			params.append("official_only", options.official_only ? "1" : "0");
+		}
+
+		if (options.start_range_begin !== undefined) {
+			params.append("start_range_begin", options.start_range_begin.toString());
+		}
+
+		if (options.start_range_end !== undefined) {
+			params.append("start_range_end", options.start_range_end.toString());
 		}
 
 		return this.request<SearchSeriesResponse>(
