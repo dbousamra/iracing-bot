@@ -5,7 +5,7 @@ import { log } from "./util";
 const OAUTH_BASE_URL = "https://oauth.iracing.com";
 const DATA_API_BASE_URL = "https://members-ng.iracing.com/data";
 
-interface TokenResponse {
+export interface TokenResponse {
 	access_token: string;
 	token_type: string;
 	expires_in: number;
@@ -14,14 +14,14 @@ interface TokenResponse {
 	scope?: string;
 }
 
-interface MemberProfile {
+export interface MemberProfile {
 	member_info: {
 		display_name: string;
 		cust_id: number;
 	};
 }
 
-interface RecentRace {
+export interface RecentRace {
 	subsession_id: number;
 	start_position: number;
 	finish_position: number;
@@ -42,37 +42,25 @@ interface RecentRace {
 	season_quarter: number;
 }
 
-interface RecentRaces {
+export interface RecentRaces {
 	races: RecentRace[];
 }
 
-interface DriverResult {
-	cust_id?: number;
-	driver_results?: DriverResult[];
-	average_lap?: number;
-	best_lap_time?: number;
-	best_qual_lap_time?: number;
-	car_class_id?: number;
-	oldi_rating: number;
-	finish_position?: number;
-	finish_position_in_class?: number;
-}
-
-interface SessionResult {
+export interface SessionResult {
 	simsession_name: string;
 	results: DriverResult[];
 }
 
-interface SessionSplit {
+export interface SessionSplit {
 	subsession_id: number;
 }
 
-interface CarClass {
+export interface CarClass {
 	car_class_id: number;
 	name: string;
 }
 
-interface SubsessionResults {
+export interface SubsessionResults {
 	session_splits: SessionSplit[];
 	session_results: SessionResult[];
 	end_time: string;
@@ -80,7 +68,7 @@ interface SubsessionResults {
 }
 
 // Career Stats Types
-interface CareerStat {
+export interface CareerStat {
 	avg_finish_position: number;
 	avg_incidents: number;
 	category: string;
@@ -94,12 +82,12 @@ interface CareerStat {
 	wins: number;
 }
 
-interface MemberCareerStats {
+export interface MemberCareerStats {
 	cust_id: number;
 	stats: CareerStat[];
 }
 
-interface MemberSummary {
+export interface MemberSummary {
 	cust_id: number;
 	this_year: {
 		num_league_sessions: number;
@@ -109,7 +97,7 @@ interface MemberSummary {
 	};
 }
 
-interface MemberRecap {
+export interface MemberRecap {
 	cust_id: number;
 	stats: {
 		avg_finish_position: number;
@@ -130,36 +118,391 @@ interface MemberRecap {
 	};
 }
 
-interface SearchSeriesResult {
+export interface SessionData {
+	allowed_licenses?: AllowedLicense[];
+	associated_subsession_ids: number[];
+	can_protest: boolean;
+	car_classes: CarClass[];
+	caution_type: number;
+	cooldown_minutes: number;
+	corners_per_lap: number;
+	damage_model: number;
+	driver_change_param1: number;
+	driver_change_param2: number;
+	driver_change_rule: number;
+	driver_changes: boolean;
+	end_time: string;
+	event_average_lap: number;
+	event_best_lap_time: number;
+	event_laps_complete: number;
+	event_strength_of_field: number;
+	event_type: number;
+	event_type_name: string;
+	heat_info_id: number;
+	host_id?: number;
+	league_id?: number;
+	league_name?: string;
+	league_season_id?: number;
+	league_season_name?: string;
+	license_category: string;
+	license_category_id: number;
+	limit_minutes: number;
+	max_team_drivers: number;
+	max_weeks: number;
+	min_team_drivers: number;
+	num_caution_laps: number;
+	num_cautions: number;
+	num_drivers: number;
+	num_laps_for_qual_average: number;
+	num_laps_for_solo_average: number;
+	num_lead_changes: number;
+	official_session: boolean;
+	points_type: string;
+	private_session_id: number;
+	race_summary: RaceSummary;
+	race_week_num: number;
+	restrict_results?: boolean;
+	results_restricted: boolean;
+	season_id: number;
+	season_name: string;
+	season_quarter: number;
+	season_short_name: string;
+	season_year: number;
+	series_id: number;
+	series_logo?: string;
+	series_name: string;
+	series_short_name: string;
+	session_id: number;
+	session_name?: string;
+	session_results: SessionResult[];
+	session_splits: SessionSplit[];
+	special_event_type: number;
+	start_time: string;
+	subsession_id: number;
+	track: Track;
+	track_state: TrackState;
+	weather: Weather;
+}
+
+export interface AllowedLicense {
+	group_name: string;
+	license_group: number;
+	max_license_level: number;
+	min_license_level: number;
+	parent_id: number;
+}
+
+export interface CarClass {
 	car_class_id: number;
+	cars_in_class: CarInClass[];
+	name: string;
+	num_entries: number;
+	short_name: string;
+	strength_of_field: number;
+}
+
+export interface CarInClass {
 	car_id: number;
+}
+
+export interface RaceSummary {
+	average_lap: number;
+	field_strength: number;
+	has_opt_path: boolean;
+	heat_info_id?: number;
+	laps_complete: number;
+	num_caution_laps: number;
+	num_cautions: number;
+	num_lead_changes: number;
+	num_opt_laps: number;
+	special_event_type: number;
+	special_event_type_text: string;
+	subsession_id: number;
+}
+
+export interface ResultEntry {
+	aggregate_champ_points: number;
+	ai: boolean;
+	average_lap: number;
+	best_lap_num: number;
+	best_lap_time: number;
+	best_nlaps_num: number;
+	best_nlaps_time: number;
+	best_qual_lap_at: string;
+	best_qual_lap_num: number;
+	best_qual_lap_time: number;
+	car_class_id: number;
+	car_class_name: string;
+	car_class_short_name: string;
+	car_id: number;
+	car_name: string;
+	carcfg: number;
+	champ_points: number;
+	class_interval: number;
+	country_code: string;
+	cust_id: number;
+	display_name: string;
+	division: number;
+	division_name?: string;
+	driver_results?: DriverResult[];
+	drop_race: boolean;
+	finish_position: number;
+	finish_position_in_class: number;
+	flair_id: number;
+	flair_name: string;
+	flair_shortname: string;
+	friend: boolean;
+	helmet: Helmet;
+	incidents: number;
+	interval: number;
+	laps_complete: number;
+	laps_lead: number;
+	league_agg_points: number;
+	league_points: number;
+	license_change_oval: number;
+	license_change_road: number;
+	livery: Livery;
+	max_pct_fuel_fill: number;
+	new_cpi: number;
+	new_license_level: number;
+	new_sub_level: number;
+	new_ttrating: number;
+	newi_rating: number;
+	old_cpi: number;
+	old_license_level: number;
+	old_sub_level: number;
+	old_ttrating: number;
+	oldi_rating: number;
+	opt_laps_complete: number;
+	position: number;
+	qual_lap_time: number;
+	reason_out: string;
+	reason_out_id: number;
+	starting_position: number;
+	starting_position_in_class: number;
+	suit?: Suit;
+	team_id?: number;
+	watched: boolean;
+	weight_penalty_kg: number;
+}
+
+export interface DriverResult {
+	aggregate_champ_points: number;
+	ai: boolean;
+	average_lap: number;
+	best_lap_num: number;
+	best_lap_time: number;
+	best_nlaps_num: number;
+	best_nlaps_time: number;
+	best_qual_lap_at: string;
+	best_qual_lap_num: number;
+	best_qual_lap_time: number;
+	car_class_id: number;
+	car_class_name: string;
+	car_class_short_name: string;
+	car_id: number;
+	car_name: string;
+	carcfg: number;
+	champ_points: number;
+	class_interval: number;
+	country_code: string;
+	cust_id: number;
+	display_name: string;
+	division: number;
+	drop_race: boolean;
+	finish_position: number;
+	finish_position_in_class: number;
+	flair_id: number;
+	flair_name: string;
+	flair_shortname: string;
+	friend: boolean;
+	helmet: Helmet;
+	incidents: number;
+	interval: number;
+	laps_complete: number;
+	laps_lead: number;
+	league_agg_points: number;
+	league_points: number;
+	license_change_oval: number;
+	license_change_road: number;
+	livery: Livery;
+	max_pct_fuel_fill: number;
+	new_cpi: number;
+	new_license_level: number;
+	new_sub_level: number;
+	new_ttrating: number;
+	newi_rating: number;
+	old_cpi: number;
+	old_license_level: number;
+	old_sub_level: number;
+	old_ttrating: number;
+	oldi_rating: number;
+	opt_laps_complete: number;
+	position: number;
+	qual_lap_time: number;
+	reason_out: string;
+	reason_out_id: number;
+	starting_position: number;
+	starting_position_in_class: number;
+	suit: Suit;
+	team_id: number;
+	watched: boolean;
+	weight_penalty_kg: number;
+}
+
+export interface Helmet {
+	color1: string;
+	color2: string;
+	color3: string;
+	face_type: number;
+	helmet_type: number;
+	pattern: number;
+}
+
+export interface Suit {
+	color1: string;
+	color2: string;
+	color3: string;
+	pattern: number;
+}
+
+export interface Livery {
+	car_id: number;
+	car_number: string;
+	color1: string;
+	color2: string;
+	color3: string;
+	number_color1: string;
+	number_color2: string;
+	number_color3: string;
+	number_font: number;
+	number_slant: number;
+	pattern: number;
+	rim_type: number;
+	sponsor1: number;
+	sponsor2: number;
+	wheel_color: string | null;
+}
+
+export interface WeatherResult {
+	avg_cloud_cover_pct: number;
+	avg_rel_humidity: number;
+	avg_skies: number;
+	avg_temp: number;
+	avg_wind_dir: number;
+	avg_wind_speed: number;
+	fog_time_pct: number;
+	max_cloud_cover_pct: number;
+	max_fog: number;
+	max_temp: number;
+	max_wind_speed: number;
+	min_cloud_cover_pct: number;
+	min_temp: number;
+	min_wind_speed: number;
+	precip_mm: number;
+	precip_mm2hr_before_session: number;
+	precip_time_pct: number;
+	simulated_start_time: string;
+	temp_units: number;
+	wind_units: number;
+}
+
+export interface SessionSplit {
+	event_strength_of_field: number;
+	subsession_id: number;
+}
+
+export interface Track {
+	category?: string;
+	category_id?: number;
+	config_name?: string;
+	track_id: number;
+	track_name: string;
+}
+
+export interface TrackState {
+	leave_marbles: boolean;
+	practice_rubber: number;
+	qualify_rubber: number;
+	race_rubber: number;
+	warmup_rubber: number;
+}
+
+export interface Weather {
+	allow_fog: boolean;
+	fog: number;
+	precip_mm2hr_before_final_session: number;
+	precip_mm_final_session: number;
+	precip_option: number;
+	precip_time_pct: number;
+	rel_humidity: number;
+	simulated_start_time: string;
+	skies: number;
+	temp_units: number;
+	temp_value: number;
+	time_of_day: number;
+	track_water: number;
+	type: number;
+	version: number;
+	weather_var_initial: number;
+	weather_var_ongoing: number;
+	wind_dir: number;
+	wind_units: number;
+	wind_value: number;
+}
+
+export interface SearchSeriesResult {
+	car_class_id: number;
+	car_class_name: string;
+	car_class_short_name: string;
+	car_id: number;
+	car_name: string;
+	car_name_abbreviated: string;
+	champ_points: number;
+	cust_id: number;
+	driver_changes: boolean;
+	drop_race: boolean;
+	end_time: string;
+	start_time: string;
+	event_average_lap: number;
+	event_best_lap_time: number;
+	event_laps_complete: number;
+	event_strength_of_field: number;
+	event_type: number;
+	event_type_name: string;
 	finish_position: number;
 	finish_position_in_class: number;
 	incidents: number;
 	laps_complete: number;
-	newi_rating: number;
-	oldi_rating: number;
-	new_sub_level: number;
-	old_sub_level: number;
+	laps_led: number;
+	license_category: string;
+	license_category_id: number;
+	num_caution_laps: number;
+	num_cautions: number;
+	num_drivers: number;
+	num_lead_changes: number;
+	official_session: boolean;
+	race_week_num: number;
 	season_id: number;
+	season_license_group: number;
+	season_license_group_name: string;
 	season_quarter: number;
 	season_year: number;
 	series_id: number;
 	series_name: string;
-	start_position: number;
-	start_position_in_class: number;
+	series_short_name: string;
+	session_id: number;
 	subsession_id: number;
-	event_strength_of_field: number;
-	start_time: string;
-	end_time: string;
+	starting_position: number;
+	starting_position_in_class: number;
 	track: {
 		track_id: number;
 		track_name: string;
+		config_name?: string;
 	};
-}
-
-interface SearchSeriesResponse {
-	data: SearchSeriesResult[];
+	winner_ai: boolean;
+	winner_group_id: number;
+	winner_name: string;
 }
 
 export type IRacingClientOptions = {
@@ -434,38 +777,23 @@ export class IRacingClient {
 	 * Search for series results with optional filters
 	 */
 	async searchSeries(options: {
-		cust_id: number;
-		season_year?: number;
-		season_quarter?: number;
-		official_only?: boolean;
-		start_range_begin?: number;
-		start_range_end?: number;
-	}): Promise<SearchSeriesResponse> {
-		const params = new URLSearchParams({
-			cust_id: options.cust_id.toString(),
-		});
+		category_ids?: string;
+		cust_id: string;
+		event_types?: string;
+		finish_range_begin?: string;
+		finish_range_end?: string;
+		official_only?: string;
+		race_week_num?: string;
+		season_quarter?: string;
+		season_year?: string;
+		series_id?: string;
+		start_range_begin?: string;
+		start_range_end?: string;
+		team_id?: string;
+	}): Promise<SearchSeriesResult[]> {
+		const params = new URLSearchParams(options);
 
-		if (options.season_year !== undefined) {
-			params.append("season_year", options.season_year.toString());
-		}
-
-		if (options.season_quarter !== undefined) {
-			params.append("season_quarter", options.season_quarter.toString());
-		}
-
-		if (options.official_only !== undefined) {
-			params.append("official_only", options.official_only ? "1" : "0");
-		}
-
-		if (options.start_range_begin !== undefined) {
-			params.append("start_range_begin", options.start_range_begin.toString());
-		}
-
-		if (options.start_range_end !== undefined) {
-			params.append("start_range_end", options.start_range_end.toString());
-		}
-
-		return this.request<SearchSeriesResponse>(
+		return this.request<SearchSeriesResult[]>(
 			`/results/search_series?${params.toString()}`,
 		);
 	}

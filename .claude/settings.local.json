@@ -10,7 +10,15 @@
       "Bash(pnpm exec tsx:*)",
       "Bash(pnpm run cli:*)",
       "Bash(pnpm add:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm rebuild:*)",
+      "Bash(tsx src/scripts/getRecentForm.ts:*)",
+      "Bash(pnpm run:*)",
+      "Bash(./node_modules/.bin/tsx:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm tsx:*)",
+      "Bash(pnpm install:*)"
     ]
   }
 }

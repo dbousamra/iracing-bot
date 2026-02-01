@@ -2,7 +2,7 @@ import { EmbedBuilder, REST, Routes } from "discord.js";
 import pino from "pino";
 import type { Command } from "./commands";
 import { type TrackedUser, config } from "./config";
-import type { Db } from "./db";
+import type { Db, DriverStats } from "./db";
 import {
 	type GetCareerStatsResponse,
 	type GetLatestRaceResponse,
@@ -18,6 +18,35 @@ const logger = pino({
 export function run<A>(fn: () => A): A {
 	return fn();
 }
+
+export const compact = <A>(array: (A | undefined | null)[]): A[] => {
+	return array.filter((v): v is A => v !== undefined && v !== null);
+};
+
+export const map = async <A, B>(
+	arr: A[],
+	f: (value: A, index: number) => Promise<B>,
+	options?: { concurrency: number },
+): Promise<B[]> => {
+	const concurrency = options?.concurrency ?? arr.length;
+	const results: B[] = new Array(arr.length);
+	let currentIndex = 0;
+
+	const worker = async () => {
+		while (currentIndex < arr.length) {
+			const index = currentIndex++;
+			// biome-ignore lint/style/noNonNullAssertion: No need to type this
+			results[index] = await f(arr[index]!, index);
+		}
+	};
+
+	// Launch workers based on concurrency limit
+	await Promise.all(
+		Array.from({ length: Math.min(concurrency, arr.length) }, worker),
+	);
+
+	return results;
+};
 
 // biome-ignore lint/suspicious/noExplicitAny: No need to type this
 export const log = (message: string, payload?: any) => {
@@ -147,6 +176,53 @@ export const createRecentFormEmbed = (form: GetRecentFormResponse) => {
 				value: `Avg Finish » \`P${form.trends.avgFinishPos}\`\nAvg Start » \`P${form.trends.avgStartPos}\`\nAvg Incidents » \`${form.trends.avgIncidents}\`\nAvg SOF » \`${form.trends.avgSof}\`\nPositions Gained » \`${form.trends.positionsGained}\`\nRaces in Last 30 Days » \`${form.trends.racesLast30Days}\``,
 			},
 		)
+		.setTimestamp();
+};
+
+export const createSeasonLeaderboardEmbed = (options: {
+	leaderboard: DriverStats[];
+	seasonYear: number;
+	seasonQuarter: number;
+	licenseCategory: string;
+}) => {
+	const { leaderboard, seasonYear, seasonQuarter, licenseCategory } = options;
+
+	// Create leaderboard table - limit to top 10
+	const leaderboardText = leaderboard
+		.slice(0, 10)
+		.map((entry, index) => {
+			const rank = `${index + 1}.`.padEnd(3, " ");
+			const name = entry.customerName.padEnd(20, " ");
+			const irGain =
+				entry.iratingGain >= 0
+					? `+${entry.iratingGain}`.padStart(6, " ")
+					: entry.iratingGain.toString().padStart(6, " ");
+			const races = entry.totalRaces.toString().padStart(3, " ");
+			const wins = entry.totalWins.toString().padStart(2, " ");
+
+			return `\`${rank} ${name} ${irGain}iR | ${races} races | ${wins} wins\``;
+		})
+		.join("\n");
+
+	// Calculate total stats
+	const totalRaces = leaderboard.reduce(
+		(acc, entry) => acc + entry.totalRaces,
+		0,
+	);
+	const totalDrivers = leaderboard.length;
+
+	return new EmbedBuilder()
+		.setTitle(`${seasonYear} Season ${seasonQuarter} - ${licenseCategory} Leaderboard`)
+		.setColor(0xffd700) // Gold color for leaderboard
+		.setDescription(leaderboardText)
+		.addFields({
+			name: "📊 • Summary",
+			value: `Total Drivers » \`${totalDrivers}\`\nTotal Races » \`${totalRaces}\``,
+			inline: false,
+		})
+		.setFooter({
+			text: "Data cached for 24 hours. Use refresh:true to force update.",
+		})
 		.setTimestamp();
 };
 

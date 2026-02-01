@@ -25,7 +25,7 @@ run(async () => {
 		],
 	});
 
-	const commands = getCommands(iRacingClient);
+	const commands = getCommands(iRacingClient, db);
 
 	const poll = async () => {
 		await pollLatestRaces(iRacingClient, db, {

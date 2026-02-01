@@ -2,7 +2,13 @@ import {
 	calculateBottleMeter,
 	calculateMichaelsBottleMeter,
 } from "./bottle-meter";
-import type { IRacingClient } from "./iracing-client";
+import type { Db, DriverStats } from "./db";
+import type {
+	DriverResult,
+	IRacingClient,
+	SubsessionResults,
+} from "./iracing-client";
+import { compact, map } from "./util";
 
 export const formatLaptime = (laptime: number): string => {
 	const microseconds = laptime * 100;
@@ -281,185 +287,215 @@ export const getCareerStats = async (
 
 export type GetCareerStatsResponse = Awaited<ReturnType<typeof getCareerStats>>;
 
-/**
- * Get recent form with trend analysis for up to 50 recent races
- */
-export const getRecentForm = async (
-	iRacingClient: IRacingClient,
-	options: {
-		customerId: number;
-	},
+// Hardcoded list of customers to track for season leaderboard
+const customers: Record<string, number> = {
+	"Chris Wilson6": 151465,
+	"Amilie Furmań": 133234,
+	"Daniel Baez": 132641,
+	"Dominic Bou-Samra": 404007,
+	"Janne Salminen": 592520,
+	"Laurent Masson": 949802,
+	"Sam Millar": 906888,
+	"Aden Lennox-Bradley": 342461,
+	"Bradley Whittaker": 1323000,
+	"Brock Hellmech": 1199307,
+	"Byren Webley": 1083104,
+	"David Piljek": 900057,
+	"Erik van der Bijl": 138878,
+	"Fred Zufelt": 105768,
+	"Jake Lennox-Bradley": 732853,
+	"Jarod Mcleod": 1234205,
+	"Jarrod Williams": 721800,
+	"Joseph Tavora": 126395,
+	"Luke Hay": 712812,
+	"Matt Blee": 353389,
+	"Matt Gregier": 1360582,
+	"Matt Halden": 965609,
+	"Michael S Cullen": 793206,
+	"Tom Roberts": 616110,
+	"Tom Williams6": 489441,
+	"Zach Martin5": 875230,
+};
+
+const calculateStats = (
+	results: {
+		subsessionResults: SubsessionResults;
+		driverResult: DriverResult;
+	}[],
 ) => {
-	const { customerId } = options;
-
-	const [customer, recentRaces] = await Promise.all([
-		iRacingClient.getMemberProfile({ cust_id: customerId }),
-		iRacingClient.getRecentRaces({ cust_id: customerId }),
-	]);
-
-	const driverName = customer.member_info.display_name;
-
-	const maxRaces = 50;
-	let allRaces = [...recentRaces.races];
-
-	// If we don't have enough races, fetch more from older seasons
-	if (allRaces.length < maxRaces) {
-		// Get the oldest race to determine where to start fetching
-		const oldestRace = allRaces[allRaces.length - 1];
-		if (oldestRace) {
-			let currentYear = oldestRace.season_year;
-			let currentQuarter = oldestRace.season_quarter - 1; // Start with previous quarter
-
-			// Keep fetching until we have 50 races or run out of seasons to check
-			while (allRaces.length < maxRaces && currentYear >= 2024) {
-				// Don't go too far back
-				// Handle quarter rollover
-				if (currentQuarter < 1) {
-					currentQuarter = 4;
-					currentYear--;
-				}
-
-				try {
-					const searchResults = await iRacingClient.searchSeries({
-						cust_id: customerId,
-						season_year: currentYear,
-						season_quarter: currentQuarter,
-					});
-
-					// Convert search results to the same format as recent races
-					const convertedRaces = searchResults.data.map((result) => ({
-						subsession_id: result.subsession_id,
-						start_position: result.start_position_in_class || result.start_position,
-						finish_position:
-							result.finish_position_in_class || result.finish_position,
-						incidents: result.incidents,
-						newi_rating: result.newi_rating,
-						oldi_rating: result.oldi_rating,
-						old_sub_level: result.old_sub_level,
-						new_sub_level: result.new_sub_level,
-						series_name: result.series_name,
-						strength_of_field: result.event_strength_of_field,
-						track: {
-							track_name: result.track.track_name,
-						},
-						laps: result.laps_complete,
-						car_class_id: result.car_class_id,
-						session_start_time: result.start_time,
-						season_year: result.season_year,
-						season_quarter: result.season_quarter,
-					}));
-
-					// Filter out duplicates (races we already have)
-					const existingSubsessionIds = new Set(
-						allRaces.map((r) => r.subsession_id),
-					);
-					const newRaces = convertedRaces.filter(
-						(r) => !existingSubsessionIds.has(r.subsession_id),
-					);
-
-					allRaces = [...allRaces, ...newRaces];
-				} catch (error) {
-					// If we get an error (e.g., no data for this season), continue to next
-					console.error(
-						`Failed to fetch races for ${currentYear} Q${currentQuarter}:`,
-						error,
-					);
-				}
-
-				currentQuarter--;
-			}
-		}
-	}
-
-	// Take up to 50 races
-	const racesToAnalyze = allRaces.slice(0, maxRaces);
-
-	// Calculate trend metrics
-	const raceMetrics = racesToAnalyze.map((race) => {
-		const iratingChange = race.newi_rating - race.oldi_rating;
-		const positionChange = race.start_position - race.finish_position;
-		const srChange = (race.new_sub_level - race.old_sub_level) / 100;
-		return {
-			subsessionId: race.subsession_id,
-			series: race.series_name,
-			track: race.track.track_name,
-			startPos: race.start_position,
-			finishPos: race.finish_position,
-			positionChange,
-			iRating: race.newi_rating,
-			iratingChange,
-			incidents: race.incidents,
-			sof: race.strength_of_field,
-			sessionStartTime: race.session_start_time,
-			srChange,
-		};
-	});
-
-	// Calculate trends
-	const totalIratingChange = raceMetrics.reduce(
-		(acc, race) => acc + race.iratingChange,
-		0,
-	);
-	const avgIratingChange = (totalIratingChange / raceMetrics.length).toFixed(0);
-	const avgFinishPos =
-		raceMetrics.reduce((acc, race) => acc + race.finishPos, 0) /
-		raceMetrics.length;
-	const avgStartPos =
-		raceMetrics.reduce((acc, race) => acc + race.startPos, 0) /
-		raceMetrics.length;
-	const avgIncidents =
-		raceMetrics.reduce((acc, race) => acc + race.incidents, 0) /
-		raceMetrics.length;
-	const avgSof =
-		raceMetrics.reduce((acc, race) => acc + race.sof, 0) / raceMetrics.length;
-
-	// Calculate SR metrics
-	const totalSrChange = raceMetrics.reduce(
-		(acc, race) => acc + race.srChange,
-		0,
-	);
-	const avgSrChange = (totalSrChange / raceMetrics.length).toFixed(2);
-
-	const wins = raceMetrics.filter((r) => r.finishPos === 1).length;
-	const top5 = raceMetrics.filter((r) => r.finishPos <= 5).length;
-	const positionsGained = raceMetrics.reduce(
-		(acc, race) => acc + Math.max(0, race.positionChange),
-		0,
+	// Filter out races with -1 iRating (not established yet)
+	const validResults = results.filter(
+		(result) =>
+			result.driverResult.oldi_rating > 0 &&
+			result.driverResult.newi_rating > 0,
 	);
 
-	// Calculate number of races in last 30 days
-	const thirtyDaysAgo = new Date();
-	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-	const racesLast30Days = raceMetrics.filter(
-		(race) => new Date(race.sessionStartTime) >= thirtyDaysAgo,
+	const driverResults = validResults.map((result) => result.driverResult);
+	const totalRaces = driverResults.length;
+	const totalWins = driverResults.filter(
+		(result) => result.finish_position === 1,
 	).length;
 
-	// Determine trend color: green if gaining iRating, red if losing
-	const trendColor = totalIratingChange >= 0 ? 0x00ff00 : 0xff0000;
+	const startingIrating = driverResults[0]?.oldi_rating ?? 0;
+	const endingIrating =
+		driverResults[driverResults.length - 1]?.newi_rating ?? 0;
+	const startingSr = driverResults[0] ? driverResults[0].old_sub_level / 100 : 0;
+	const endingSr = driverResults[driverResults.length - 1]
+		? driverResults[driverResults.length - 1].new_sub_level / 100
+		: 0;
+	const iratingGain = endingIrating - startingIrating;
+	const srGain = endingSr - startingSr;
 
-	// Get current iRating from most recent race
-	const currentIrating = raceMetrics[0]?.iRating ?? 0;
+	const averageStartPosition =
+		driverResults.reduce((acc, result) => acc + result.starting_position, 0) /
+		totalRaces;
+	const averageFinishPosition =
+		driverResults.reduce((acc, result) => acc + result.finish_position, 0) /
+		totalRaces;
+	const averageIncidents =
+		driverResults.reduce((acc, result) => acc + result.incidents, 0) /
+		totalRaces;
+
+	// Calculate average races per day
+	const firstRaceTime = validResults[0]
+		? new Date(validResults[0].subsessionResults.end_time).getTime()
+		: 0;
+	const lastRaceTime = validResults[validResults.length - 1]
+		? new Date(
+				validResults[validResults.length - 1].subsessionResults.end_time,
+			).getTime()
+		: 0;
+	const daysSpan = (lastRaceTime - firstRaceTime) / (1000 * 60 * 60 * 24);
+	const avgRacesPerDay = daysSpan > 0 ? totalRaces / daysSpan : 0;
 
 	return {
-		driverName,
-		currentIrating,
-		raceMetrics,
-		trends: {
-			totalIratingChange,
-			avgIratingChange,
-			avgFinishPos: avgFinishPos.toFixed(1),
-			avgStartPos: avgStartPos.toFixed(1),
-			avgIncidents: avgIncidents.toFixed(2),
-			avgSof: Math.round(avgSof),
-			totalSrChange: totalSrChange.toFixed(2),
-			avgSrChange,
-			racesLast30Days,
-			wins,
-			top5,
-			positionsGained,
-		},
-		trendColor,
+		totalRaces,
+		totalWins,
+		startingIrating,
+		endingIrating,
+		iratingGain,
+		startingSr,
+		endingSr,
+		srGain,
+		averageStartPosition,
+		averageFinishPosition,
+		averageIncidents,
+		avgRacesPerDay,
 	};
 };
 
-export type GetRecentFormResponse = Awaited<ReturnType<typeof getRecentForm>>;
+export const getSeasonLeaderboard = async (
+	iRacingClient: IRacingClient,
+	db: Db,
+	options: {
+		seasonYear: number;
+		seasonQuarter: number;
+		licenseCategory: string;
+		forceRefresh?: boolean;
+	},
+): Promise<DriverStats[]> => {
+	const { seasonYear, seasonQuarter, licenseCategory, forceRefresh } = options;
+
+	// Build cache key
+	const cacheKey = `${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}`;
+
+	// Check cache first (unless force refresh)
+	if (!forceRefresh) {
+		const cached = await db.getLeaderboardCache(cacheKey);
+		if (cached) {
+			console.log(`Using cached leaderboard data for ${cacheKey}`);
+			return cached.data;
+		}
+	}
+
+	console.log(`Fetching fresh leaderboard data for ${cacheKey}...`);
+
+	// Fetch data for all hardcoded customers
+	const customerStats: DriverStats[] = [];
+
+	for (const [name, customerId] of Object.entries(customers)) {
+		try {
+			console.log(`⬇️  Downloading data for ${name}...`);
+
+			const seriesResults = await iRacingClient.searchSeries({
+				cust_id: customerId.toString(),
+				season_year: seasonYear.toString(),
+				season_quarter: seasonQuarter.toString(),
+				official_only: "true",
+				event_types: "5",
+			});
+
+			// Filter to only include specified license category races
+			const categoryRaces = seriesResults.filter(
+				(race) => race.license_category === licenseCategory,
+			);
+
+			const sortedRaces = categoryRaces.sort(
+				(a, b) =>
+					new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+			);
+
+			// Fetch detailed results for each race
+			const results = compact(
+				await map(
+					sortedRaces,
+					async (race) => {
+						const subsessionResults = await iRacingClient.getResults({
+							subsession_id: race.subsession_id,
+						});
+
+						const driverResult = subsessionResults.session_results
+							.find((result) => result.simsession_name === "RACE")
+							?.results.find(
+								(result) => result.cust_id?.toString() === customerId.toString(),
+							);
+
+						if (!driverResult) {
+							return undefined;
+						}
+
+						return { subsessionResults, driverResult };
+					},
+					{ concurrency: 8 },
+				),
+			);
+
+			if (results.length === 0) {
+				console.log(`No races found for ${name}`);
+				continue;
+			}
+
+			const stats = calculateStats(results);
+
+			customerStats.push({
+				customerId,
+				customerName: name,
+				totalRaces: stats.totalRaces,
+				totalWins: stats.totalWins,
+				startingIrating: stats.startingIrating,
+				endingIrating: stats.endingIrating,
+				iratingGain: stats.iratingGain,
+				startingSr: stats.startingSr,
+				endingSr: stats.endingSr,
+				srGain: stats.srGain,
+				averageStartPosition: stats.averageStartPosition,
+				averageFinishPosition: stats.averageFinishPosition,
+				averageIncidents: stats.averageIncidents,
+				avgRacesPerDay: stats.avgRacesPerDay,
+			});
+		} catch (error) {
+			console.error(`❌ Error fetching data for ${name}:`, error);
+		}
+	}
+
+	// Sort by iRating gain (descending)
+	const sortedStats = customerStats.sort(
+		(a, b) => b.iratingGain - a.iratingGain,
+	);
+
+	// Store in cache
+	await db.setLeaderboardCache(cacheKey, sortedStats);
+	console.log(`✅ Cached leaderboard data for ${cacheKey}`);
+
+	return sortedStats;
+};

@@ -4,12 +4,17 @@ import {
 	type SlashCommandOptionsOnlyBuilder,
 } from "discord.js";
 import { config } from "./config";
-import { getLatestRace, getCareerStats, getRecentForm } from "./iracing";
+import type { Db } from "./db";
+import {
+	getCareerStats,
+	getLatestRace,
+	getSeasonLeaderboard,
+} from "./iracing";
 import type { IRacingClient } from "./iracing-client";
 import {
-	createRaceEmbed,
 	createCareerStatsEmbed,
-	createRecentFormEmbed,
+	createRaceEmbed,
+	createSeasonLeaderboardEmbed,
 } from "./util";
 
 export type Command = {
@@ -122,15 +127,45 @@ export const careerStats = (iRacingClient: IRacingClient): Command => ({
 	},
 });
 
-export const recentForm = (iRacingClient: IRacingClient): Command => ({
+export const seasonLeaderboard = (
+	iRacingClient: IRacingClient,
+	db: Db,
+): Command => ({
 	data: new SlashCommandBuilder()
-		.setName("recent_form")
-		.setDescription("Get recent form and trend analysis for a member")
-		.addUserOption((option) =>
+		.setName("season_leaderboard")
+		.setDescription("View season leaderboard for all tracked drivers")
+		.addIntegerOption((option) =>
 			option
-				.setName("user")
-				.setDescription("The user to get recent form for")
+				.setName("year")
+				.setDescription("Season year (e.g., 2026)")
 				.setRequired(true),
+		)
+		.addIntegerOption((option) =>
+			option
+				.setName("quarter")
+				.setDescription("Season quarter (1-4)")
+				.setRequired(true)
+				.setMinValue(1)
+				.setMaxValue(4),
+		)
+		.addStringOption((option) =>
+			option
+				.setName("category")
+				.setDescription("License category")
+				.setRequired(true)
+				.addChoices(
+					{ name: "Sports Car", value: "Sports Car" },
+					{ name: "Road", value: "Road" },
+					{ name: "Oval", value: "Oval" },
+					{ name: "Dirt Road", value: "Dirt Road" },
+					{ name: "Dirt Oval", value: "Dirt Oval" },
+				),
+		)
+		.addBooleanOption((option) =>
+			option
+				.setName("refresh")
+				.setDescription("Force refresh data from iRacing (ignores cache)")
+				.setRequired(false),
 		),
 
 	execute: async (interaction: CommandInteraction): Promise<void> => {
@@ -138,43 +173,52 @@ export const recentForm = (iRacingClient: IRacingClient): Command => ({
 			return;
 		}
 
-		const user = interaction.options.getUser("user");
+		const year = interaction.options.getInteger("year", true);
+		const quarter = interaction.options.getInteger("quarter", true);
+		const category = interaction.options.getString("category", true);
+		const forceRefresh = interaction.options.getBoolean("refresh") ?? false;
 
-		if (!user) {
-			await interaction.reply("User is required");
-			return;
-		}
-
-		const trackedUser = config.TRACKED_USERS.find(
-			(trackedUser) => trackedUser.discordId === user.id,
-		);
-
-		if (!trackedUser) {
-			await interaction.reply("Could not find user in tracked users. Ask dom");
-			return;
-		}
-
-		// Defer the reply immediately to avoid hitting the 3s timeout
+		// Defer immediately - this may take time
 		await interaction.deferReply();
 
 		try {
-			const customerId = Number(trackedUser.customerId);
-			const form = await getRecentForm(iRacingClient, { customerId });
-			const embed = createRecentFormEmbed(form);
+			const leaderboard = await getSeasonLeaderboard(iRacingClient, db, {
+				seasonYear: year,
+				seasonQuarter: quarter,
+				licenseCategory: category,
+				forceRefresh,
+			});
+
+			if (leaderboard.length === 0) {
+				await interaction.editReply({
+					content: `No race data found for ${year} Q${quarter} (${category})`,
+				});
+				return;
+			}
+
+			const embed = createSeasonLeaderboardEmbed({
+				leaderboard,
+				seasonYear: year,
+				seasonQuarter: quarter,
+				licenseCategory: category,
+			});
+
 			await interaction.editReply({ embeds: [embed] });
 		} catch (err) {
+			console.error("Failed to fetch season leaderboard:", err);
 			await interaction.editReply({
-				content: "Failed to fetch recent form data.",
+				content:
+					"Failed to fetch season leaderboard data. Please try again later.",
 			});
 		}
 	},
 });
 
-export const getCommands = (iRacingClient: IRacingClient) => {
+export const getCommands = (iRacingClient: IRacingClient, db: Db) => {
 	return {
 		ping,
 		latest_race: latestRace(iRacingClient),
 		career_stats: careerStats(iRacingClient),
-		recent_form: recentForm(iRacingClient),
+		season_leaderboard: seasonLeaderboard(iRacingClient, db),
 	};
 };
