@@ -6,7 +6,6 @@ import type { Db, DriverStats } from "./db";
 import {
 	type GetCareerStatsResponse,
 	type GetLatestRaceResponse,
-	type GetRecentFormResponse,
 	getLatestRace,
 } from "./iracing";
 import type { IRacingClient } from "./iracing-client";
@@ -161,24 +160,6 @@ export const createCareerStatsEmbed = (stats: GetCareerStatsResponse) => {
 		.setTimestamp();
 };
 
-export const createRecentFormEmbed = (form: GetRecentFormResponse) => {
-	const raceCount = form.raceMetrics.length;
-	return new EmbedBuilder()
-		.setTitle(`${form.driverName}'s Recent Form (${raceCount} Races)`)
-		.setColor(form.trendColor)
-		.addFields(
-			{
-				name: "📈 • __Trend Analysis__",
-				value: `Current iRating » \`${form.currentIrating}\`\nTotal iR Change » \`${form.trends.totalIratingChange >= 0 ? "+" : ""}${form.trends.totalIratingChange}\`\nAvg iR Change/Race » \`${Number(form.trends.avgIratingChange) >= 0 ? "+" : ""}${form.trends.avgIratingChange}\`\nTotal SR Change » \`${Number(form.trends.totalSrChange) >= 0 ? "+" : ""}${form.trends.totalSrChange}\`\nAvg SR Change/Race » \`${Number(form.trends.avgSrChange) >= 0 ? "+" : ""}${form.trends.avgSrChange}\`\nWins » \`${form.trends.wins}/${raceCount}\`\nTop 5s » \`${form.trends.top5}/${raceCount}\``,
-			},
-			{
-				name: "📊 • __Average Performance__",
-				value: `Avg Finish » \`P${form.trends.avgFinishPos}\`\nAvg Start » \`P${form.trends.avgStartPos}\`\nAvg Incidents » \`${form.trends.avgIncidents}\`\nAvg SOF » \`${form.trends.avgSof}\`\nPositions Gained » \`${form.trends.positionsGained}\`\nRaces in Last 30 Days » \`${form.trends.racesLast30Days}\``,
-			},
-		)
-		.setTimestamp();
-};
-
 export const createSeasonLeaderboardEmbed = (options: {
 	leaderboard: DriverStats[];
 	seasonYear: number;
@@ -187,22 +168,26 @@ export const createSeasonLeaderboardEmbed = (options: {
 }) => {
 	const { leaderboard, seasonYear, seasonQuarter, licenseCategory } = options;
 
-	// Create leaderboard table - limit to top 10
-	const leaderboardText = leaderboard
-		.slice(0, 10)
-		.map((entry, index) => {
-			const rank = `${index + 1}.`.padEnd(3, " ");
-			const name = entry.customerName.padEnd(20, " ");
-			const irGain =
-				entry.iratingGain >= 0
-					? `+${entry.iratingGain}`.padStart(6, " ")
-					: entry.iratingGain.toString().padStart(6, " ");
-			const races = entry.totalRaces.toString().padStart(3, " ");
-			const wins = entry.totalWins.toString().padStart(2, " ");
+	// Create leaderboard table - show all users
+	// Using diff format for color coding: + = green (gains), - = red (losses)
+	const leaderboardLines = leaderboard.map((entry, index) => {
+		const rank = `${index + 1}.`.padEnd(3, " ");
+		const name = entry.customerName.padEnd(20, " ");
+		const irGain =
+			entry.iratingGain >= 0
+				? `+${entry.iratingGain}`.padStart(6, " ")
+				: entry.iratingGain.toString().padStart(6, " ");
+		const srGain =
+			entry.srGain >= 0
+				? `+${entry.srGain.toFixed(2)}`.padStart(6, " ")
+				: entry.srGain.toFixed(2).padStart(6, " ");
 
-			return `\`${rank} ${name} ${irGain}iR | ${races} races | ${wins} wins\``;
-		})
-		.join("\n");
+		// Prefix with + or - for diff syntax highlighting
+		const prefix = entry.iratingGain >= 0 ? "+" : "-";
+		return `${prefix} ${rank} ${name} ${irGain}iR | ${srGain} SR`;
+	});
+
+	const leaderboardText = "```diff\n" + leaderboardLines.join("\n") + "\n```";
 
 	// Calculate total stats
 	const totalRaces = leaderboard.reduce(
@@ -212,7 +197,9 @@ export const createSeasonLeaderboardEmbed = (options: {
 	const totalDrivers = leaderboard.length;
 
 	return new EmbedBuilder()
-		.setTitle(`${seasonYear} Season ${seasonQuarter} - ${licenseCategory} Leaderboard`)
+		.setTitle(
+			`${seasonYear} Season ${seasonQuarter} - ${licenseCategory} Leaderboard`,
+		)
 		.setColor(0xffd700) // Gold color for leaderboard
 		.setDescription(leaderboardText)
 		.addFields({

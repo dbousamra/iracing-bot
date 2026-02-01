@@ -5,11 +5,7 @@ import {
 } from "discord.js";
 import { config } from "./config";
 import type { Db } from "./db";
-import {
-	getCareerStats,
-	getLatestRace,
-	getSeasonLeaderboard,
-} from "./iracing";
+import { getCareerStats, getLatestRace, getSeasonLeaderboard } from "./iracing";
 import type { IRacingClient } from "./iracing-client";
 import {
 	createCareerStatsEmbed,
@@ -155,8 +151,8 @@ export const seasonLeaderboard = (
 				.setRequired(true)
 				.addChoices(
 					{ name: "Sports Car", value: "Sports Car" },
-					{ name: "Road", value: "Road" },
 					{ name: "Oval", value: "Oval" },
+					{ name: "Formula", value: "Formula" },
 					{ name: "Dirt Road", value: "Dirt Road" },
 					{ name: "Dirt Oval", value: "Dirt Oval" },
 				),

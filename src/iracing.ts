@@ -339,7 +339,9 @@ const calculateStats = (
 	const startingIrating = driverResults[0]?.oldi_rating ?? 0;
 	const endingIrating =
 		driverResults[driverResults.length - 1]?.newi_rating ?? 0;
-	const startingSr = driverResults[0] ? driverResults[0].old_sub_level / 100 : 0;
+	const startingSr = driverResults[0]
+		? driverResults[0].old_sub_level / 100
+		: 0;
 	const endingSr = driverResults[driverResults.length - 1]
 		? driverResults[driverResults.length - 1].new_sub_level / 100
 		: 0;
@@ -424,7 +426,6 @@ export const getSeasonLeaderboard = async (
 				official_only: "true",
 				event_types: "5",
 			});
-
 			// Filter to only include specified license category races
 			const categoryRaces = seriesResults.filter(
 				(race) => race.license_category === licenseCategory,
@@ -447,7 +448,8 @@ export const getSeasonLeaderboard = async (
 						const driverResult = subsessionResults.session_results
 							.find((result) => result.simsession_name === "RACE")
 							?.results.find(
-								(result) => result.cust_id?.toString() === customerId.toString(),
+								(result) =>
+									result.cust_id?.toString() === customerId.toString(),
 							);
 
 						if (!driverResult) {

@@ -553,9 +553,6 @@ export class IRacingClient {
 			const timeUntilExpiry = Math.floor(
 				(this.tokenExpiresAt - now) / 1000 / 60,
 			);
-			log(
-				`Access token is still valid (expires in ${timeUntilExpiry} minutes)`,
-			);
 			return;
 		}
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { config } from "../config";
-import { getCareerStats, getLatestRace, getRecentForm } from "../iracing";
+import { getCareerStats, getLatestRace } from "../iracing";
 import { IRacingClient } from "../iracing-client";
 
 const iRacingClient = new IRacingClient({
@@ -107,36 +107,6 @@ League Wins: ${stats.thisYearStats.num_league_wins}`,
 	console.log();
 };
 
-const displayRecentForm = async (customerId: number) => {
-	const form = await getRecentForm(iRacingClient, { customerId });
-	const raceCount = form.raceMetrics.length;
-
-	console.log(`\n📈 ${form.driverName}'s Recent Form (${raceCount} Races)`);
-
-	formatSection(
-		"Trend Analysis",
-		`Current iRating: ${form.currentIrating}
-Total iR Change: ${form.trends.totalIratingChange >= 0 ? "+" : ""}${form.trends.totalIratingChange}
-Avg iR Change/Race: ${Number(form.trends.avgIratingChange) >= 0 ? "+" : ""}${form.trends.avgIratingChange}
-Total SR Change: ${Number(form.trends.totalSrChange) >= 0 ? "+" : ""}${form.trends.totalSrChange}
-Avg SR Change/Race: ${Number(form.trends.avgSrChange) >= 0 ? "+" : ""}${form.trends.avgSrChange}
-Wins: ${form.trends.wins}/${raceCount}
-Top 5s: ${form.trends.top5}/${raceCount}`,
-	);
-
-	formatSection(
-		"📊 Average Performance",
-		`Avg Finish: P${form.trends.avgFinishPos}
-Avg Start: P${form.trends.avgStartPos}
-Avg Incidents: ${form.trends.avgIncidents}
-Avg SOF: ${form.trends.avgSof}
-Positions Gained: ${form.trends.positionsGained}
-Races in Last 30 Days: ${form.trends.racesLast30Days}`,
-	);
-
-	console.log();
-};
-
 const main = async () => {
 	const [command, userArg] = process.argv.slice(2);
 
@@ -186,9 +156,6 @@ Examples:
 				break;
 			case "career_stats":
 				await displayCareerStats(customerId);
-				break;
-			case "recent_form":
-				await displayRecentForm(customerId);
 				break;
 			default:
 				console.error(
