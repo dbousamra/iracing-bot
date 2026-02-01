@@ -1,7 +1,7 @@
-import { EmbedBuilder, REST, Routes } from "discord.js";
+import { type Client, EmbedBuilder, REST, Routes } from "discord.js";
 import pino from "pino";
 import type { Command } from "./commands";
-import { type TrackedUser, config } from "./config";
+import { config } from "./config";
 import type { Db, DriverStats } from "./db";
 import {
 	type GetCareerStatsResponse,
@@ -99,12 +99,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
 			},
 			{
-				name: `${race.bottleMeter.emoji} • __Bottle-Meter (Original)__`,
-				value: `Level » \`${race.bottleMeter.level.toUpperCase()}\` (${race.bottleMeter.score}/100)`,
-				inline: true,
-			},
-			{
-				name: `${race.michaelsBottleMeter.emoji} • Bottle-Meter (Michael's)`,
+				name: `${race.michaelsBottleMeter.emoji} • Bottle-Meter`,
 				value: `${race.michaelsBottleMeter.level.toUpperCase()}\n\n${race.michaelsBottleMeter.explanation}`,
 				inline: false,
 			},
@@ -168,26 +163,30 @@ export const createSeasonLeaderboardEmbed = (options: {
 }) => {
 	const { leaderboard, seasonYear, seasonQuarter, licenseCategory } = options;
 
-	// Create leaderboard table - show all users
-	// Using diff format for color coding: + = green (gains), - = red (losses)
-	const leaderboardLines = leaderboard.map((entry, index) => {
-		const rank = `${index + 1}.`.padEnd(3, " ");
-		const name = entry.customerName.padEnd(20, " ");
-		const irGain =
+	const header = "  Name                   | IR        | SR         | R  ";
+
+	const leaderboardLines = leaderboard.map((entry) => {
+		const name = entry.customerName.padEnd(22, " ");
+		const irGainStr =
 			entry.iratingGain >= 0
-				? `+${entry.iratingGain}`.padStart(6, " ")
-				: entry.iratingGain.toString().padStart(6, " ");
-		const srGain =
+				? `+${entry.iratingGain}`
+				: entry.iratingGain.toString();
+		const ir = `${entry.endingIrating} ${irGainStr}`.padEnd(9, " ");
+		const srGainStr =
 			entry.srGain >= 0
-				? `+${entry.srGain.toFixed(2)}`.padStart(6, " ")
-				: entry.srGain.toFixed(2).padStart(6, " ");
+				? `+${entry.srGain.toFixed(2)}`
+				: entry.srGain.toFixed(2);
+		const sr = `${entry.endingSr.toFixed(2)} ${srGainStr}`.padEnd(10, " ");
+		const races = entry.totalRaces.toString().padEnd(3, " ");
 
 		// Prefix with + or - for diff syntax highlighting
 		const prefix = entry.iratingGain >= 0 ? "+" : "-";
-		return `${prefix} ${rank} ${name} ${irGain}iR | ${srGain} SR`;
+		return `${prefix} ${name} | ${ir} | ${sr} | ${races}`;
 	});
 
-	const leaderboardText = "```diff\n" + leaderboardLines.join("\n") + "\n```";
+	const leaderboardText =
+		// biome-ignore lint/style/useTemplate: <explanation>
+		"```diff\n" + header + "\n" + leaderboardLines.join("\n") + "\n```";
 
 	// Calculate total stats
 	const totalRaces = leaderboard.reduce(
@@ -216,42 +215,77 @@ export const createSeasonLeaderboardEmbed = (options: {
 export const pollLatestRaces = async (
 	iRacingClient: IRacingClient,
 	db: Db,
+	discordClient: Client,
 	options: {
-		trackedUsers: TrackedUser[];
-		onLatestRace: (race: GetLatestRaceResponse) => Promise<void>;
+		guildId: string;
+		teamId: number;
 	},
 ) => {
-	const { trackedUsers } = options;
+	const { guildId, teamId } = options;
 
-	for (const trackedUser of trackedUsers) {
-		const customerId = Number(trackedUser.customerId);
+	try {
+		// Fetch team roster
+		const team = await iRacingClient.getTeam({ team_id: teamId });
+		const customerIds = team.roster.map((m) => m.cust_id);
 
-		try {
-			const race = await getLatestRace(iRacingClient, { customerId });
-			const subsessionId = race.race.subsession_id;
+		log(`Polling ${customerIds.length} team members for guild ${guildId}`, {
+			teamName: team.team_name,
+			teamId: team.team_id,
+		});
 
-			const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
+		for (const customerId of customerIds) {
+			try {
+				const race = await getLatestRace(iRacingClient, { customerId });
+				const subsessionId = race.race.subsession_id;
 
-			if (hasBeenSeen) {
-				log(
-					`Skipping race ${subsessionId} for ${customerId} (${trackedUser.name}) because it's already been sent.`,
-					{ subsessionId },
+				const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
+
+				if (hasBeenSeen) {
+					log(
+						`Skipping race ${subsessionId} for customer ${customerId} because it's already been sent.`,
+						{ subsessionId },
+					);
+					continue;
+				}
+
+				await db.addCustomerRace(customerId, subsessionId);
+
+				// Fetch guild config to get notification channel
+				const guildConfig = await db.getGuildConfig(guildId);
+
+				if (!guildConfig?.notificationChannelId) {
+					log(`No notification channel set for guild ${guildId}`, {
+						guildId,
+					});
+					continue;
+				}
+
+				// Post to channel
+				const channel = await discordClient.channels.fetch(
+					guildConfig.notificationChannelId,
 				);
-				continue;
-			}
 
-			await db.addCustomerRace(customerId, subsessionId);
-			log(`Found new race for ${customerId} (${trackedUser.name}).`, {
-				subsessionId,
-			});
-			await options.onLatestRace(race);
-		} catch (error) {
-			log(
-				`Error polling latest race for ${customerId} (${trackedUser.name}).`,
-				{
+				if (channel?.isSendable()) {
+					const embed = createRaceEmbed(race);
+					await channel.send({ embeds: [embed] });
+					log(`Posted race ${subsessionId} for customer ${customerId}`, {
+						subsessionId,
+						customerId,
+						guildId,
+					});
+				}
+			} catch (error) {
+				log(`Error polling latest race for customer ${customerId}`, {
 					error,
-				},
-			);
+					customerId,
+				});
+			}
 		}
+	} catch (error) {
+		log(`Error fetching team roster for guild ${guildId}`, {
+			error,
+			guildId,
+			teamId,
+		});
 	}
 };

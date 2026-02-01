@@ -505,6 +505,24 @@ export interface SearchSeriesResult {
 	winner_name: string;
 }
 
+export interface TeamRosterMember {
+	admin: boolean;
+	cust_id: number;
+	display_name: string;
+	helmet: Helmet;
+	owner: boolean;
+}
+
+export interface TeamGetResponse {
+	about: string;
+	created: string;
+	team_id: number;
+	team_name: string;
+	roster: TeamRosterMember[];
+	roster_count: number;
+	is_member: boolean;
+}
+
 export type IRacingClientOptions = {
 	username: string;
 	password: string;
@@ -792,6 +810,26 @@ export class IRacingClient {
 
 		return this.request<SearchSeriesResult[]>(
 			`/results/search_series?${params.toString()}`,
+		);
+	}
+
+	/**
+	 * Get team information including roster
+	 */
+	async getTeam(options: {
+		team_id: number;
+		include_licenses?: boolean;
+	}): Promise<TeamGetResponse> {
+		const params = new URLSearchParams({
+			team_id: options.team_id.toString(),
+		});
+
+		if (options.include_licenses !== undefined) {
+			params.append("include_licenses", options.include_licenses.toString());
+		}
+
+		return this.request<TeamGetResponse>(
+			`/team/get?${params.toString()}`,
 		);
 	}
 

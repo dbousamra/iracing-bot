@@ -130,18 +130,6 @@ export const getLatestRace = async (
 	const color = iratingChange > 0 ? 0x00ff00 : 0xff0000;
 	const split = `${sessionSplit + 1} / ${results.session_splits.length}`;
 
-	// Calculate bottle-meter
-	const bottleMeter = calculateBottleMeter({
-		startPos,
-		finishPos,
-		entries,
-		iratingChange,
-		oldSubLevel,
-		newSubLevel,
-		incidents,
-		laps,
-	});
-
 	// Calculate Michael's bottle-meter
 	const michaelsBottleMeter = calculateMichaelsBottleMeter({
 		finishPos,
@@ -175,7 +163,6 @@ export const getLatestRace = async (
 		race,
 		entries,
 		iRatingRank,
-		bottleMeter,
 		michaelsBottleMeter,
 	};
 };
@@ -394,12 +381,33 @@ export const getSeasonLeaderboard = async (
 		seasonQuarter: number;
 		licenseCategory: string;
 		forceRefresh?: boolean;
+		customerIds?: number[];
+		customerNames?: Record<number, string>;
 	},
 ): Promise<DriverStats[]> => {
-	const { seasonYear, seasonQuarter, licenseCategory, forceRefresh } = options;
+	const {
+		seasonYear,
+		seasonQuarter,
+		licenseCategory,
+		forceRefresh,
+		customerIds,
+		customerNames,
+	} = options;
 
-	// Build cache key
-	const cacheKey = `${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}`;
+	// Use provided customerIds or fall back to hardcoded list
+	const customersToFetch = customerIds
+		? Object.fromEntries(
+				customerIds.map((id) => [
+					customerNames?.[id] ?? id.toString(),
+					id,
+				]),
+			)
+		: customers;
+
+	// Build cache key (include customerIds in key if provided)
+	const cacheKey = customerIds
+		? `${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}_custom_${customerIds.sort().join("_")}`
+		: `${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}`;
 
 	// Check cache first (unless force refresh)
 	if (!forceRefresh) {
@@ -412,10 +420,10 @@ export const getSeasonLeaderboard = async (
 
 	console.log(`Fetching fresh leaderboard data for ${cacheKey}...`);
 
-	// Fetch data for all hardcoded customers
+	// Fetch data for all customers
 	const customerStats: DriverStats[] = [];
 
-	for (const [name, customerId] of Object.entries(customers)) {
+	for (const [name, customerId] of Object.entries(customersToFetch)) {
 		try {
 			console.log(`⬇️  Downloading data for ${name}...`);
 

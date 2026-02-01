@@ -130,25 +130,25 @@ Examples:
 		process.exit(1);
 	}
 
-	// Find user
-	let trackedUser = config.TRACKED_USERS[0]; // Default to first user
-	if (userArg) {
-		const found = config.TRACKED_USERS.find(
-			(u) => u.name.toLowerCase() === userArg.toLowerCase(),
-		);
-		if (!found) {
-			console.error(
-				`❌ User "${userArg}" not found in tracked users. Available users: ${config.TRACKED_USERS.map((u) => u.name).join(", ")}`,
-			);
-			process.exit(1);
-		}
-		trackedUser = found;
+	// Get customer ID from argument
+	if (!userArg) {
+		console.error("❌ Customer ID is required");
+		console.log("\nUsage:");
+		console.log("  tsx src/scripts/cli.ts <command> <customer-id>");
+		console.log("\nExamples:");
+		console.log("  tsx src/scripts/cli.ts latest 404007");
+		console.log("  tsx src/scripts/cli.ts career 404007");
+		process.exit(1);
 	}
 
-	const customerId = Number(trackedUser.customerId);
+	const customerId = Number(userArg);
+	if (Number.isNaN(customerId)) {
+		console.error(`❌ Invalid customer ID: ${userArg}`);
+		process.exit(1);
+	}
 
 	try {
-		console.log(`\n🔄 Fetching data for ${trackedUser.name}...\n`);
+		console.log(`\n🔄 Fetching data for customer ${customerId}...\n`);
 
 		switch (command) {
 			case "latest_race":
