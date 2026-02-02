@@ -117,7 +117,7 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 	// Add Zak Brown image when world-champion-hotline is achieved
 	if (race.michaelsBottleMeter.level === "world-champion-hotline") {
 		embed.setImage(
-			"https://news.dupontregistry.com/wp-content/uploads/2025/11/Zak-Brown-scaled.jpg",
+			"https://images.ps-aws.com/c?url=https%3A%2F%2Fd3cm515ijfiu6w.cloudfront.net%2Fwp-content%2Fuploads%2F2025%2F03%2F20140136%2Fzak-brown-mclaren-australian-gp-2025-planetf1-1320x742.jpg",
 		);
 	}
 

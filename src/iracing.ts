@@ -271,36 +271,6 @@ export const getCareerStats = async (
 
 export type GetCareerStatsResponse = Awaited<ReturnType<typeof getCareerStats>>;
 
-// Hardcoded list of customers to track for season leaderboard
-const customers: Record<string, number> = {
-	"Chris Wilson6": 151465,
-	"Amilie Furmań": 133234,
-	"Daniel Baez": 132641,
-	"Dominic Bou-Samra": 404007,
-	"Janne Salminen": 592520,
-	"Laurent Masson": 949802,
-	"Sam Millar": 906888,
-	"Aden Lennox-Bradley": 342461,
-	"Bradley Whittaker": 1323000,
-	"Brock Hellmech": 1199307,
-	"Byren Webley": 1083104,
-	"David Piljek": 900057,
-	"Erik van der Bijl": 138878,
-	"Fred Zufelt": 105768,
-	"Jake Lennox-Bradley": 732853,
-	"Jarod Mcleod": 1234205,
-	"Jarrod Williams": 721800,
-	"Joseph Tavora": 126395,
-	"Luke Hay": 712812,
-	"Matt Blee": 353389,
-	"Matt Gregier": 1360582,
-	"Matt Halden": 965609,
-	"Michael S Cullen": 793206,
-	"Tom Roberts": 616110,
-	"Tom Williams6": 489441,
-	"Zach Martin5": 875230,
-};
-
 const calculateStats = (
 	results: {
 		subsessionResults: SubsessionResults;
@@ -378,7 +348,7 @@ export const getSeasonLeaderboard = async (
 		seasonQuarter: number;
 		licenseCategory: string;
 		forceRefresh?: boolean;
-		customerIds?: number[];
+		customerIds: number[];
 		customerNames?: Record<number, string>;
 	},
 ): Promise<DriverStats[]> => {
@@ -392,11 +362,9 @@ export const getSeasonLeaderboard = async (
 	} = options;
 
 	// Use provided customerIds or fall back to hardcoded list
-	const customersToFetch = customerIds
-		? Object.fromEntries(
-				customerIds.map((id) => [customerNames?.[id] ?? id.toString(), id]),
-			)
-		: customers;
+	const customersToFetch = Object.fromEntries(
+		customerIds.map((id) => [customerNames?.[id] ?? id.toString(), id]),
+	);
 
 	// Build cache key (include customerIds in key if provided)
 	const cacheKey = customerIds
