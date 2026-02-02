@@ -1,7 +1,4 @@
-import {
-	calculateBottleMeter,
-	calculateMichaelsBottleMeter,
-} from "./bottle-meter";
+import { calculateMichaelsBottleMeter } from "./bottle-meter";
 import type { Db, DriverStats } from "./db";
 import type {
 	DriverResult,
@@ -397,10 +394,7 @@ export const getSeasonLeaderboard = async (
 	// Use provided customerIds or fall back to hardcoded list
 	const customersToFetch = customerIds
 		? Object.fromEntries(
-				customerIds.map((id) => [
-					customerNames?.[id] ?? id.toString(),
-					id,
-				]),
+				customerIds.map((id) => [customerNames?.[id] ?? id.toString(), id]),
 			)
 		: customers;
 
