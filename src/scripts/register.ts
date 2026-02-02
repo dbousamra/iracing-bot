@@ -19,7 +19,7 @@ const run = async () => {
 
 	deployCommands({
 		commands: commands,
-		guildId: "949939970804703232",
+		guildId: "1340830932470337536",
 	});
 };
 
