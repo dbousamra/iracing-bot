@@ -34,22 +34,7 @@ export class Db {
 	}
 
 	async init() {
-		await this.db.exec(`
-			CREATE TABLE IF NOT EXISTS customer_races (
-				customer_id INTEGER NOT NULL,
-				subsession_id INTEGER NOT NULL,
-				PRIMARY KEY (customer_id, subsession_id)
-			) STRICT;
-		`);
-
-		await this.db.exec(`
-			CREATE TABLE IF NOT EXISTS season_leaderboard_cache (
-				cache_key TEXT PRIMARY KEY,
-				data TEXT NOT NULL,
-				cached_at INTEGER NOT NULL
-			) STRICT;
-		`);
-
+		// Create guild_config first as we'll need it for migration
 		await this.db.exec(`
 			CREATE TABLE IF NOT EXISTS guild_config (
 				guild_id TEXT PRIMARY KEY,
@@ -59,23 +44,87 @@ export class Db {
 				updated_at INTEGER NOT NULL
 			) STRICT;
 		`);
+
+		// Check if we need to migrate customer_races table
+		const tableInfo = this.db
+			.prepare(
+				"SELECT sql FROM sqlite_master WHERE type='table' AND name='customer_races'",
+			)
+			.get() as { sql: string } | undefined;
+
+		const needsMigration =
+			tableInfo && !tableInfo.sql.includes("guild_id");
+
+		if (needsMigration) {
+			// Rename old table
+			await this.db.exec(`
+				ALTER TABLE customer_races RENAME TO customer_races_old;
+			`);
+
+			// Create new table with guild_id
+			await this.db.exec(`
+				CREATE TABLE customer_races (
+					customer_id INTEGER NOT NULL,
+					subsession_id INTEGER NOT NULL,
+					guild_id TEXT NOT NULL,
+					PRIMARY KEY (customer_id, subsession_id, guild_id)
+				) STRICT;
+			`);
+
+			// Migrate data: for each old record, create a record for EVERY guild
+			// This preserves "already seen" status across all guilds
+			await this.db.exec(`
+				INSERT INTO customer_races (customer_id, subsession_id, guild_id)
+				SELECT old.customer_id, old.subsession_id, gc.guild_id
+				FROM customer_races_old old
+				CROSS JOIN guild_config gc;
+			`);
+
+			// Drop old table
+			await this.db.exec(`
+				DROP TABLE customer_races_old;
+			`);
+		} else {
+			// Create table if it doesn't exist
+			await this.db.exec(`
+				CREATE TABLE IF NOT EXISTS customer_races (
+					customer_id INTEGER NOT NULL,
+					subsession_id INTEGER NOT NULL,
+					guild_id TEXT NOT NULL,
+					PRIMARY KEY (customer_id, subsession_id, guild_id)
+				) STRICT;
+			`);
+		}
+
+		await this.db.exec(`
+			CREATE TABLE IF NOT EXISTS season_leaderboard_cache (
+				cache_key TEXT PRIMARY KEY,
+				data TEXT NOT NULL,
+				cached_at INTEGER NOT NULL
+			) STRICT;
+		`);
 	}
 
-	async addCustomerRace(customerId: number, subsessionId: number) {
+	async addCustomerRace(
+		customerId: number,
+		subsessionId: number,
+		guildId: string,
+	) {
 		const stmt = this.db.prepare(
-			"INSERT OR IGNORE INTO customer_races (customer_id, subsession_id) VALUES (?, ?)",
+			"INSERT OR IGNORE INTO customer_races (customer_id, subsession_id, guild_id) VALUES (?, ?, ?)",
 		);
-		stmt.run(customerId, subsessionId);
+		stmt.run(customerId, subsessionId, guildId);
 	}
 
 	async hasCustomerRace(
 		customerId: number,
 		subsessionId: number,
+		guildId: string,
 	): Promise<boolean> {
 		const stmt = this.db.prepare(
-			"SELECT 1 FROM customer_races WHERE customer_id = ? AND subsession_id = ?",
+			"SELECT 1 FROM customer_races WHERE customer_id = ? AND subsession_id = ? AND guild_id = ?",
 		);
-		return !!stmt.get(customerId, subsessionId);
+		return !!stmt.get(customerId, subsessionId, guildId);
 	}
 
 	async getLeaderboardCache(

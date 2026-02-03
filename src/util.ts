@@ -238,17 +238,21 @@ export const pollLatestRaces = async (
 				const race = await getLatestRace(iRacingClient, { customerId });
 				const subsessionId = race.race.subsession_id;
 
-				const hasBeenSeen = await db.hasCustomerRace(customerId, subsessionId);
+				const hasBeenSeen = await db.hasCustomerRace(
+					customerId,
+					subsessionId,
+					guildId,
+				);
 
 				if (hasBeenSeen) {
 					log(
-						`Skipping race ${subsessionId} for customer ${customerId} because it's already been sent.`,
-						{ subsessionId },
+						`Skipping race ${subsessionId} for customer ${customerId} in guild ${guildId} because it's already been sent.`,
+						{ subsessionId, guildId },
 					);
 					continue;
 				}
 
-				await db.addCustomerRace(customerId, subsessionId);
+				await db.addCustomerRace(customerId, subsessionId, guildId);
 
 				// Fetch guild config to get notification channel
 				const guildConfig = await db.getGuildConfig(guildId);
