@@ -116,9 +116,22 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 
 	// Add Zak Brown image when world-champion-hotline is achieved
 	if (race.michaelsBottleMeter.level === "world-champion-hotline") {
-		embed.setImage(
-			"https://images.ps-aws.com/c?url=https%3A%2F%2Fd3cm515ijfiu6w.cloudfront.net%2Fwp-content%2Fuploads%2F2025%2F03%2F20140136%2Fzak-brown-mclaren-australian-gp-2025-planetf1-1320x742.jpg",
-		);
+		const zakBrownImages = [
+			"https://i.postimg.cc/m2Ny25b1/zak1.jpg",
+			"https://i.postimg.cc/4NbQNSJc/zak2.jpg",
+			"https://i.postimg.cc/TYqJY4Ry/zak3.png",
+			"https://i.postimg.cc/qMXxM5kn/zak4.jpg",
+			"https://i.postimg.cc/KvrDvHZM/zak5.jpg",
+			"https://i.postimg.cc/pXYJX62z/zak6.png",
+		];
+		const randomImage =
+			zakBrownImages[Math.floor(Math.random() * zakBrownImages.length)];
+		embed.setImage(randomImage);
+	}
+
+	// Add bottle image when catastrophic bottling occurs
+	if (race.michaelsBottleMeter.level === "catastrophic") {
+		embed.setImage("https://i.postimg.cc/VLBWLVYb/bottle.jpg");
 	}
 
 	return embed;
