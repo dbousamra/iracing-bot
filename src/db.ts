@@ -103,6 +103,16 @@ export class Db {
 				cached_at INTEGER NOT NULL
 			) STRICT;
 		`);
+
+		await this.db.exec(`
+			CREATE TABLE IF NOT EXISTS team_races (
+				subsession_id INTEGER NOT NULL,
+				team_id INTEGER NOT NULL,
+				guild_id TEXT NOT NULL,
+				posted_at INTEGER NOT NULL,
+				PRIMARY KEY (subsession_id, team_id, guild_id)
+			) STRICT;
+		`);
 	}
 
 	async addCustomerRace(
@@ -244,5 +254,28 @@ export class Db {
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 		}));
+	}
+
+	async addTeamRace(
+		subsessionId: number,
+		teamId: number,
+		guildId: string,
+	): Promise<void> {
+		const nowSeconds = Math.floor(Date.now() / 1000);
+		const stmt = this.db.prepare(
+			"INSERT OR IGNORE INTO team_races (subsession_id, team_id, guild_id, posted_at) VALUES (?, ?, ?, ?)",
+		);
+		stmt.run(subsessionId, teamId, guildId, nowSeconds);
+	}
+
+	async hasTeamRace(
+		subsessionId: number,
+		teamId: number,
+		guildId: string,
+	): Promise<boolean> {
+		const stmt = this.db.prepare(
+			"SELECT 1 FROM team_races WHERE subsession_id = ? AND team_id = ? AND guild_id = ?",
+		);
+		return !!stmt.get(subsessionId, teamId, guildId);
 	}
 }

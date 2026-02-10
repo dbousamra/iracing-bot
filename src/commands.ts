@@ -7,12 +7,23 @@ import {
 } from "discord.js";
 import { config } from "./config";
 import type { Db } from "./db";
-import { getCareerStats, getLatestRace, getSeasonLeaderboard } from "./iracing";
-import type { IRacingClient } from "./iracing-client";
+import {
+	getCareerStats,
+	getLatestRace,
+	getSeasonLeaderboard,
+	getTeamRaceData,
+} from "./iracing";
+import type {
+	DriverResult,
+	IRacingClient,
+	ResultEntry,
+	SessionData,
+} from "./iracing-client";
 import {
 	createCareerStatsEmbed,
 	createRaceEmbed,
 	createSeasonLeaderboardEmbed,
+	createTeamRaceEmbed,
 } from "./util";
 
 export type Command = {
@@ -417,6 +428,233 @@ export const teamShow = (iRacingClient: IRacingClient, db: Db): Command => ({
 	},
 });
 
+export const showRace = (iRacingClient: IRacingClient, db: Db): Command => ({
+	data: new SlashCommandBuilder()
+		.setName("show_race")
+		.setDescription("Display race results for any subsession by ID")
+		.addIntegerOption((option) =>
+			option
+				.setName("subsession-id")
+				.setDescription("The subsession ID to display results for")
+				.setRequired(true),
+		),
+
+	execute: async (interaction: CommandInteraction): Promise<void> => {
+		if (!interaction.isChatInputCommand() || !interaction.guildId) {
+			return;
+		}
+
+		const subsessionId = interaction.options.getInteger("subsession-id", true);
+
+		// Defer the reply immediately to avoid hitting the 3s timeout
+		await interaction.deferReply();
+
+		try {
+			// Fetch subsession data
+			const subsessionResults = (await iRacingClient.getResults({
+				subsession_id: subsessionId,
+			})) as unknown as SessionData;
+
+			// Helper function to detect team races
+			const isTeamRace = (): boolean => {
+				if (
+					subsessionResults.min_team_drivers > 1 ||
+					subsessionResults.max_team_drivers > 1 ||
+					subsessionResults.driver_changes
+				) {
+					return true;
+				}
+
+				const raceSession = subsessionResults.session_results.find(
+					(res) => res.simsession_name === "RACE",
+				);
+
+				if (!raceSession) {
+					return false;
+				}
+
+				return (raceSession.results as unknown as ResultEntry[]).some(
+					(res) => (res.driver_results?.length ?? 0) > 1,
+				);
+			};
+
+			if (isTeamRace()) {
+				// Team race - show all teams or just the first one for preview
+				const raceSession = subsessionResults.session_results.find(
+					(res) => res.simsession_name === "RACE",
+				);
+
+				if (!raceSession) {
+					await interaction.editReply({
+						content: "No race session found in this subsession.",
+					});
+					return;
+				}
+
+				const results = raceSession.results as unknown as ResultEntry[];
+				const teamsWithMultipleDrivers = results.filter(
+					(res) => (res.driver_results?.length ?? 0) > 1,
+				);
+
+				if (teamsWithMultipleDrivers.length === 0) {
+					await interaction.editReply({
+						content: "No team entries found in this race.",
+					});
+					return;
+				}
+
+				// Get guild config to see if we should filter to tracked drivers
+				const guildConfig = await db.getGuildConfig(interaction.guildId);
+				let trackedCustomerIds: number[] = [];
+
+				if (guildConfig?.iracingTeamId) {
+					try {
+						const team = await iRacingClient.getTeam({
+							team_id: guildConfig.iracingTeamId,
+						});
+						trackedCustomerIds = team.roster.map((m) => m.cust_id);
+					} catch (err) {
+						// If we can't fetch the team, just show all drivers
+						console.error("Failed to fetch team roster:", err);
+					}
+				}
+
+				// Find teams that have at least one tracked driver (or show first team if no tracking)
+				let teamToShow = teamsWithMultipleDrivers[0];
+
+				if (trackedCustomerIds.length > 0) {
+					// Find first team with tracked drivers
+					for (const team of teamsWithMultipleDrivers) {
+						if (!team) continue;
+						const hasTrackedDriver = team.driver_results?.some(
+							(driver: DriverResult) =>
+								trackedCustomerIds.includes(driver.cust_id ?? 0),
+						);
+						if (hasTrackedDriver) {
+							teamToShow = team;
+							break;
+						}
+					}
+				}
+
+				if (!teamToShow?.team_id) {
+					await interaction.editReply({
+						content: "Could not find a valid team entry to display.",
+					});
+					return;
+				}
+
+				// Get all drivers on this team (or just tracked ones if filtering)
+				const driversOnTeam =
+					teamToShow.driver_results?.map((d: DriverResult) => d.cust_id ?? 0) ??
+					[];
+				const driversToShow =
+					trackedCustomerIds.length > 0
+						? driversOnTeam.filter((id) => trackedCustomerIds.includes(id))
+						: driversOnTeam;
+
+				if (driversToShow.length === 0) {
+					await interaction.editReply({
+						content: "No drivers found on this team to display.",
+					});
+					return;
+				}
+
+				// Fetch team race data
+				const teamRaceData = await getTeamRaceData(iRacingClient, {
+					subsessionId,
+					teamId: teamToShow.team_id,
+					trackedCustomerIds: driversToShow,
+				});
+
+				const embed = createTeamRaceEmbed(teamRaceData);
+
+				const totalTeams = teamsWithMultipleDrivers.length;
+				const message =
+					totalTeams > 1
+						? `Showing results for one team. This race had ${totalTeams} teams total.`
+						: "";
+
+				await interaction.editReply({
+					content: message || undefined,
+					embeds: [embed],
+				});
+			} else {
+				// Individual race - need to determine which driver to show
+				const raceSession = subsessionResults.session_results.find(
+					(res) => res.simsession_name === "RACE",
+				);
+
+				if (!raceSession?.results || raceSession.results.length === 0) {
+					await interaction.editReply({
+						content: "No race results found in this subsession.",
+					});
+					return;
+				}
+
+				// For individual races, we need a customer ID - try to find a tracked driver
+				const guildConfig = await db.getGuildConfig(interaction.guildId);
+				let customerIdToShow: number | undefined;
+
+				if (guildConfig?.iracingTeamId) {
+					try {
+						const team = await iRacingClient.getTeam({
+							team_id: guildConfig.iracingTeamId,
+						});
+						const trackedCustomerIds = team.roster.map((m) => m.cust_id);
+
+						// Find first tracked driver in this race
+						const results = raceSession.results as unknown as ResultEntry[];
+						for (const result of results) {
+							if (trackedCustomerIds.includes(result.cust_id)) {
+								customerIdToShow = result.cust_id;
+								break;
+							}
+						}
+					} catch (err) {
+						console.error("Failed to fetch team roster:", err);
+					}
+				}
+
+				// If no tracked driver found, show the winner
+				if (!customerIdToShow) {
+					const results = raceSession.results as unknown as ResultEntry[];
+					const winner = results.find((r) => r.finish_position === 1);
+					customerIdToShow = winner?.cust_id;
+				}
+
+				if (!customerIdToShow) {
+					await interaction.editReply({
+						content: "Could not find a driver to display results for.",
+					});
+					return;
+				}
+
+				// Fetch individual race data
+				const race = await getLatestRace(iRacingClient, {
+					customerId: customerIdToShow,
+				});
+
+				// Verify it's the correct subsession
+				if (race.race.subsession_id !== subsessionId) {
+					await interaction.editReply({
+						content: `This subsession (${subsessionId}) is not the latest race for the selected driver. Showing their latest race instead (${race.race.subsession_id}).`,
+					});
+				}
+
+				const embed = createRaceEmbed(race);
+				await interaction.editReply({ embeds: [embed] });
+			}
+		} catch (err) {
+			console.error("Failed to fetch race data:", err);
+			await interaction.editReply({
+				content:
+					"Failed to fetch race data. The subsession may not exist or may not be accessible.",
+			});
+		}
+	},
+});
+
 export const teamSetChannel = (db: Db): Command => ({
 	data: new SlashCommandBuilder()
 		.setName("team_set_channel")
@@ -461,6 +699,7 @@ export const getCommands = (iRacingClient: IRacingClient, db: Db) => {
 		latest_race: latestRace(iRacingClient, db),
 		career_stats: careerStats(iRacingClient, db),
 		season_leaderboard: seasonLeaderboard(iRacingClient, db),
+		show_race: showRace(iRacingClient, db),
 		team_set: teamSet(iRacingClient, db),
 		team_show: teamShow(iRacingClient, db),
 		team_set_channel: teamSetChannel(db),

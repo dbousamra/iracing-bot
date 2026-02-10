@@ -18,7 +18,8 @@
       "Bash(./node_modules/.bin/tsx:*)",
       "Bash(pnpm build:*)",
       "Bash(pnpm tsx:*)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(tsx:*)"
     ]
   }
 }

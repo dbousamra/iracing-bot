@@ -79,6 +79,42 @@ export const calculateMichaelsBottleMeter = (raceData: {
 	};
 };
 
+export const calculateTeamBottleMeter = (options: {
+	teamPosition: number;
+	avgTeamIRating: number;
+	classResults: Array<{ oldIRating: number; finishPosition: number }>;
+	totalIncidents: number;
+	totalLaps: number;
+}): MichaelsBottleMeterResult => {
+	const { teamPosition, avgTeamIRating, classResults, totalIncidents, totalLaps } =
+		options;
+
+	// Sort class results by iRating to determine expected position
+	const sortedByIrating = [...classResults].sort(
+		(a, b) => b.oldIRating - a.oldIRating,
+	);
+
+	// Find expected position based on average team iRating
+	let expectedPosition = 1;
+	for (let i = 0; i < sortedByIrating.length; i++) {
+		if ((sortedByIrating[i]?.oldIRating ?? 0) > avgTeamIRating) {
+			expectedPosition++;
+		} else {
+			break;
+		}
+	}
+
+	const totalCars = classResults.length;
+
+	return calculateMichaelBottleResult({
+		rank: expectedPosition,
+		incidents: totalIncidents,
+		laps: totalLaps,
+		totalCars,
+		position: teamPosition,
+	});
+};
+
 export const calculateMichaelBottleResult = (params: {
 	rank: number;
 	incidents: number;

@@ -3,6 +3,8 @@ import type { Db, DriverStats } from "./db";
 import type {
 	DriverResult,
 	IRacingClient,
+	ResultEntry,
+	SessionData,
 	SubsessionResults,
 } from "./iracing-client";
 import { compact, map } from "./util";
@@ -165,6 +167,127 @@ export const getLatestRace = async (
 };
 
 export type GetLatestRaceResponse = Awaited<ReturnType<typeof getLatestRace>>;
+
+export interface TeamRaceData {
+	subsessionId: number;
+	teamId: number;
+	teamName: string;
+	series: string;
+	track: string;
+	carClass: string;
+	strengthOfField: number;
+	sessionStartTime: string;
+	teamPosition: number;
+	teamPositionInClass: number;
+	totalLaps: number;
+	totalIncidents: number;
+	drivers: Array<{
+		customerId: number;
+		displayName: string;
+		lapsComplete: number;
+		incidents: number;
+		oldIRating: number;
+		newIRating: number;
+		iRatingChange: number;
+		oldSubLevel: number;
+		newSubLevel: number;
+		subLevelChange: number;
+	}>;
+	avgTeamIRating: number;
+	classResults: Array<{ oldIRating: number; finishPosition: number }>;
+	totalEntries: number;
+	classEntries: number;
+}
+
+export const getTeamRaceData = async (
+	iRacingClient: IRacingClient,
+	options: {
+		subsessionId: number;
+		teamId: number;
+		trackedCustomerIds: number[];
+	},
+): Promise<TeamRaceData> => {
+	const { subsessionId, teamId, trackedCustomerIds } = options;
+
+	const results = (await iRacingClient.getResults({
+		subsession_id: subsessionId,
+	})) as unknown as SessionData;
+
+	const raceSession = results.session_results.find(
+		(res) => res.simsession_name === "RACE",
+	);
+
+	if (!raceSession) {
+		throw new Error("No race session found");
+	}
+
+	// Find the team entry - cast results to ResultEntry[] since that's the actual type
+	const teamEntry = (raceSession.results as unknown as ResultEntry[]).find(
+		(res) => res.team_id === teamId,
+	);
+
+	if (!teamEntry) {
+		throw new Error(`Team ${teamId} not found in race results`);
+	}
+
+	// Extract driver data for tracked drivers
+	const drivers =
+		teamEntry.driver_results
+			?.filter((driver: DriverResult) =>
+				trackedCustomerIds.includes(driver.cust_id ?? 0),
+			)
+			.map((driver: DriverResult) => ({
+				customerId: driver.cust_id ?? 0,
+				displayName: driver.display_name,
+				lapsComplete: driver.laps_complete,
+				incidents: driver.incidents,
+				oldIRating: driver.oldi_rating,
+				newIRating: driver.newi_rating,
+				iRatingChange: driver.newi_rating - driver.oldi_rating,
+				oldSubLevel: driver.old_sub_level / 100,
+				newSubLevel: driver.new_sub_level / 100,
+				subLevelChange: driver.new_sub_level / 100 - driver.old_sub_level / 100,
+			})) ?? [];
+
+	// Calculate average team iRating
+	const avgTeamIRating =
+		drivers.length > 0
+			? drivers.reduce((acc: number, d) => acc + d.oldIRating, 0) /
+				drivers.length
+			: 0;
+
+	// Get class results for bottle meter calculation
+	const classResults = (raceSession.results as unknown as ResultEntry[])
+		.filter((res) => res.car_class_id === teamEntry.car_class_id)
+		.map((res) => ({
+			oldIRating: res.oldi_rating,
+			finishPosition: res.finish_position_in_class,
+		}));
+
+	const carClass = results.car_classes.find(
+		(c) => c.car_class_id === teamEntry.car_class_id,
+	);
+
+	return {
+		subsessionId,
+		teamId,
+		teamName: teamEntry.car_name,
+		series: results.season_name,
+		track: results.track.track_name,
+		carClass: carClass?.name ?? teamEntry.car_class_name,
+		strengthOfField: results.event_strength_of_field,
+		sessionStartTime: results.start_time,
+		teamPosition: teamEntry.finish_position,
+		teamPositionInClass: teamEntry.finish_position_in_class,
+		totalLaps: teamEntry.laps_complete,
+		totalIncidents: teamEntry.incidents,
+		drivers,
+		avgTeamIRating,
+		classResults,
+		totalEntries: raceSession.results.length,
+		classEntries: classResults.length,
+	};
+};
 
 /**
  * Get comprehensive career statistics for a member
