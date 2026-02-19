@@ -1,6 +1,9 @@
 import { type Client, EmbedBuilder, REST, Routes } from "discord.js";
 import pino from "pino";
-import { calculateTeamBottleMeter } from "./bottle-meter";
+import {
+	type MichaelsBottleLevel,
+	calculateTeamBottleMeter,
+} from "./bottle-meter";
 import type { Command } from "./commands";
 import { config } from "./config";
 import type { Db, DriverStats } from "./db";
@@ -87,6 +90,32 @@ export const deployCommands = async (props: {
 	} catch (error) {
 		console.error(error);
 	}
+};
+
+const pickRandom = <T>(items: T[]): T =>
+	items[Math.floor(Math.random() * items.length)] as T;
+
+const celebrationImages = [
+	"https://i.postimg.cc/m2Ny25b1/zak1.jpg",
+	"https://i.postimg.cc/4NbQNSJc/zak2.jpg",
+	"https://i.postimg.cc/TYqJY4Ry/zak3.png",
+	"https://i.postimg.cc/qMXxM5kn/zak4.jpg",
+	"https://i.postimg.cc/KvrDvHZM/zak5.jpg",
+	"https://i.postimg.cc/pXYJX62z/zak6.png",
+];
+
+const catastrophicImages = [
+	"https://i.postimg.cc/VLBWLVYb/bottle.jpg",
+	"https://i.postimg.cc/Bn4Kb35n/alonso.webp",
+	"https://i.postimg.cc/x1nz8QGL/toto1.jpg",
+	"https://i.postimg.cc/9QC702PZ/toto2.webp",
+	"https://i.postimg.cc/T3fD1xjy/toto3.webp",
+];
+
+const getBottleMeterImage = (level: MichaelsBottleLevel): string | null => {
+	if (level === "world-champion-hotline") return pickRandom(celebrationImages);
+	if (level === "catastrophic") return pickRandom(catastrophicImages);
+	return null;
 };
 
 const isTeamRace = (subsessionResults: SessionData): boolean => {
@@ -233,24 +262,9 @@ export const createTeamRaceEmbed = (teamRace: TeamRaceData): EmbedBuilder => {
 		)
 		.setTimestamp(new Date(teamRace.sessionStartTime));
 
-	// Add Zak Brown image when world-champion-hotline is achieved
-	if (bottleMeter.level === "world-champion-hotline") {
-		const zakBrownImages = [
-			"https://i.postimg.cc/m2Ny25b1/zak1.jpg",
-			"https://i.postimg.cc/4NbQNSJc/zak2.jpg",
-			"https://i.postimg.cc/TYqJY4Ry/zak3.png",
-			"https://i.postimg.cc/qMXxM5kn/zak4.jpg",
-			"https://i.postimg.cc/KvrDvHZM/zak5.jpg",
-			"https://i.postimg.cc/pXYJX62z/zak6.png",
-		];
-		const randomImage =
-			zakBrownImages[Math.floor(Math.random() * zakBrownImages.length)];
-		embed.setImage(randomImage);
-	}
-
-	// Add bottle image when catastrophic bottling occurs
-	if (bottleMeter.level === "catastrophic") {
-		embed.setImage("https://i.postimg.cc/VLBWLVYb/bottle.jpg");
+	const bottleImage = getBottleMeterImage(bottleMeter.level);
+	if (bottleImage) {
+		embed.setImage(bottleImage);
 	}
 
 	return embed;
@@ -289,24 +303,9 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 		)
 		.setTimestamp(new Date(race.race.session_start_time));
 
-	// Add Zak Brown image when world-champion-hotline is achieved
-	if (race.michaelsBottleMeter.level === "world-champion-hotline") {
-		const zakBrownImages = [
-			"https://i.postimg.cc/m2Ny25b1/zak1.jpg",
-			"https://i.postimg.cc/4NbQNSJc/zak2.jpg",
-			"https://i.postimg.cc/TYqJY4Ry/zak3.png",
-			"https://i.postimg.cc/qMXxM5kn/zak4.jpg",
-			"https://i.postimg.cc/KvrDvHZM/zak5.jpg",
-			"https://i.postimg.cc/pXYJX62z/zak6.png",
-		];
-		const randomImage =
-			zakBrownImages[Math.floor(Math.random() * zakBrownImages.length)];
-		embed.setImage(randomImage);
-	}
-
-	// Add bottle image when catastrophic bottling occurs
-	if (race.michaelsBottleMeter.level === "catastrophic") {
-		embed.setImage("https://i.postimg.cc/VLBWLVYb/bottle.jpg");
+	const bottleImage = getBottleMeterImage(race.michaelsBottleMeter.level);
+	if (bottleImage) {
+		embed.setImage(bottleImage);
 	}
 
 	return embed;
