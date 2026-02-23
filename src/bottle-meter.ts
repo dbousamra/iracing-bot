@@ -150,7 +150,7 @@ export const calculateMichaelBottleResult = (params: {
 			level: "low-moderate",
 			levelNumber: 3,
 			emoji: "🟡",
-			explanation: `Finished P${position}, ${positionDiff} places behind expected (P${rank}). ${incidents >= expectedIncidents ? `${incidents} incidents (over ${expectedIncidents} threshold) contributed to underperformance.` : "Slight underperformance relative to iRating."}`,
+			explanation: `Finished P${position}, ${positionDiff >= 0 ? `${positionDiff} places behind` : `${Math.abs(positionDiff)} places ahead of`} expected (P${rank}). ${incidents >= expectedIncidents ? `${incidents} incidents (over ${expectedIncidents} threshold) despite finishing ${positionDiff >= 0 ? "behind" : "near"} expectation.` : "Slight underperformance relative to iRating."}`,
 		};
 	}
 
