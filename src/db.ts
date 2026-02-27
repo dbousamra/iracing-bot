@@ -1,6 +1,14 @@
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+export type BottleLeaderboardEntry = {
+	customerId: number;
+	customerName: string;
+	totalRaces: number;
+	catastrophicCount: number;
+	worldChampionCount: number;
+};
+
 export type DriverStats = {
 	customerId: number;
 	customerName: string;
@@ -277,5 +285,49 @@ export class Db {
 			"SELECT 1 FROM team_races WHERE subsession_id = ? AND team_id = ? AND guild_id = ?",
 		);
 		return !!stmt.get(subsessionId, teamId, guildId);
+	}
+
+	async getBottleLeaderboardCache(
+		cacheKey: string,
+	): Promise<{ data: BottleLeaderboardEntry[]; cachedAt: number } | null> {
+		const stmt = this.db.prepare(
+			"SELECT data, cached_at FROM season_leaderboard_cache WHERE cache_key = ?",
+		);
+		const row = stmt.get(cacheKey) as
+			| { data: string; cached_at: number }
+			| undefined;
+
+		if (!row) {
+			return null;
+		}
+
+		const nowSeconds = Math.floor(Date.now() / 1000);
+		const ageSeconds = nowSeconds - row.cached_at;
+		const TWENTY_FOUR_HOURS = 24 * 60 * 60;
+
+		if (ageSeconds > TWENTY_FOUR_HOURS) {
+			return null;
+		}
+
+		return {
+			data: JSON.parse(row.data),
+			cachedAt: row.cached_at,
+		};
+	}
+
+	async setBottleLeaderboardCache(
+		cacheKey: string,
+		data: BottleLeaderboardEntry[],
+	): Promise<void> {
+		const nowSeconds = Math.floor(Date.now() / 1000);
+		const stmt = this.db.prepare(`
+			INSERT INTO season_leaderboard_cache (cache_key, data, cached_at)
+			VALUES (?, ?, ?)
+			ON CONFLICT(cache_key) DO UPDATE SET
+				data = excluded.data,
+				cached_at = excluded.cached_at
+		`);
+
+		stmt.run(cacheKey, JSON.stringify(data), nowSeconds);
 	}
 }

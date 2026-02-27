@@ -8,6 +8,7 @@ import {
 import { config } from "./config";
 import type { Db } from "./db";
 import {
+	getBottleLeaderboard,
 	getCareerStats,
 	getLatestRace,
 	getSeasonLeaderboard,
@@ -20,6 +21,7 @@ import type {
 	SessionData,
 } from "./iracing-client";
 import {
+	createBottleLeaderboardEmbed,
 	createCareerStatsEmbed,
 	createRaceEmbed,
 	createSeasonLeaderboardEmbed,
@@ -285,6 +287,129 @@ export const seasonLeaderboard = (
 				await interaction.editReply({
 					content:
 						"Failed to fetch season leaderboard data. Please try again later.",
+				});
+			} catch (interactionError) {
+				console.error(
+					"Failed to edit reply (interaction likely expired):",
+					interactionError,
+				);
+			}
+		}
+	},
+});
+
+export const bottleLeaderboard = (
+	iRacingClient: IRacingClient,
+	db: Db,
+): Command => ({
+	data: new SlashCommandBuilder()
+		.setName("bottle_leaderboard")
+		.setDescription(
+			"View bottle meter leaderboard - catastrophic vs world champion counts",
+		)
+		.addIntegerOption((option) =>
+			option
+				.setName("year")
+				.setDescription("Season year (e.g., 2026)")
+				.setRequired(true),
+		)
+		.addIntegerOption((option) =>
+			option
+				.setName("quarter")
+				.setDescription("Season quarter (1-4)")
+				.setRequired(true)
+				.setMinValue(1)
+				.setMaxValue(4),
+		)
+		.addStringOption((option) =>
+			option
+				.setName("category")
+				.setDescription("License category")
+				.setRequired(true)
+				.addChoices(
+					{ name: "Sports Car", value: "Sports Car" },
+					{ name: "Oval", value: "Oval" },
+					{ name: "Formula", value: "Formula" },
+					{ name: "Dirt Road", value: "Dirt Road" },
+					{ name: "Dirt Oval", value: "Dirt Oval" },
+				),
+		)
+		.addIntegerOption((option) =>
+			option
+				.setName("team-id")
+				.setDescription("Team ID (defaults to server's configured team)")
+				.setRequired(false),
+		)
+		.addBooleanOption((option) =>
+			option
+				.setName("refresh")
+				.setDescription("Force refresh data from iRacing (ignores cache)")
+				.setRequired(false),
+		),
+
+	execute: async (interaction: CommandInteraction): Promise<void> => {
+		if (!interaction.isChatInputCommand() || !interaction.guildId) {
+			return;
+		}
+
+		const year = interaction.options.getInteger("year", true);
+		const quarter = interaction.options.getInteger("quarter", true);
+		const category = interaction.options.getString("category", true);
+		let teamId = interaction.options.getInteger("team-id");
+		const forceRefresh = interaction.options.getBoolean("refresh") ?? false;
+
+		await interaction.deferReply();
+
+		try {
+			if (!teamId) {
+				const guildConfig = await db.getGuildConfig(interaction.guildId);
+				teamId = guildConfig?.iracingTeamId ?? null;
+
+				if (!teamId) {
+					await interaction.editReply({
+						content:
+							"No team configured. Ask an admin to run /team_set or provide a team-id parameter.",
+					});
+					return;
+				}
+			}
+
+			const team = await iRacingClient.getTeam({ team_id: teamId });
+			const customerIds = team.roster.map((m) => m.cust_id);
+			const customerNames = Object.fromEntries(
+				team.roster.map((m) => [m.cust_id, m.display_name]),
+			);
+
+			const leaderboard = await getBottleLeaderboard(iRacingClient, db, {
+				seasonYear: year,
+				seasonQuarter: quarter,
+				licenseCategory: category,
+				forceRefresh,
+				customerIds,
+				customerNames,
+			});
+
+			if (leaderboard.length === 0) {
+				await interaction.editReply({
+					content: `No race data found for ${year} Q${quarter} (${category})`,
+				});
+				return;
+			}
+
+			const embed = createBottleLeaderboardEmbed({
+				leaderboard,
+				seasonYear: year,
+				seasonQuarter: quarter,
+				licenseCategory: category,
+			});
+
+			await interaction.editReply({ embeds: [embed] });
+		} catch (err) {
+			console.error("Failed to fetch bottle leaderboard:", err);
+			try {
+				await interaction.editReply({
+					content:
+						"Failed to fetch bottle leaderboard data. Please try again later.",
 				});
 			} catch (interactionError) {
 				console.error(
@@ -699,6 +824,7 @@ export const getCommands = (iRacingClient: IRacingClient, db: Db) => {
 		latest_race: latestRace(iRacingClient, db),
 		career_stats: careerStats(iRacingClient, db),
 		season_leaderboard: seasonLeaderboard(iRacingClient, db),
+		bottle_leaderboard: bottleLeaderboard(iRacingClient, db),
 		show_race: showRace(iRacingClient, db),
 		team_set: teamSet(iRacingClient, db),
 		team_show: teamShow(iRacingClient, db),

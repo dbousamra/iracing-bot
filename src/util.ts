@@ -6,7 +6,7 @@ import {
 } from "./bottle-meter";
 import type { Command } from "./commands";
 import { config } from "./config";
-import type { Db, DriverStats } from "./db";
+import type { BottleLeaderboardEntry, Db, DriverStats } from "./db";
 import {
 	type GetCareerStatsResponse,
 	type GetLatestRaceResponse,
@@ -391,6 +391,61 @@ export const createSeasonLeaderboardEmbed = (options: {
 		.addFields({
 			name: "📊 • Summary",
 			value: `Total Drivers » \`${totalDrivers}\`\nTotal Races » \`${totalRaces}\``,
+			inline: false,
+		})
+		.setFooter({
+			text: "Data cached for 24 hours. Use refresh:true to force update.",
+		})
+		.setTimestamp();
+};
+
+export const createBottleLeaderboardEmbed = (options: {
+	leaderboard: BottleLeaderboardEntry[];
+	seasonYear: number;
+	seasonQuarter: number;
+	licenseCategory: string;
+}) => {
+	const { leaderboard, seasonYear, seasonQuarter, licenseCategory } = options;
+
+	const header = "  Name                   | WCH | CAT | R  ";
+
+	const leaderboardLines = leaderboard.map((entry) => {
+		const name = entry.customerName.padEnd(22, " ");
+		const wch = entry.worldChampionCount.toString().padEnd(3, " ");
+		const cat = entry.catastrophicCount.toString().padEnd(3, " ");
+		const races = entry.totalRaces.toString().padEnd(3, " ");
+
+		const prefix =
+			entry.worldChampionCount >= entry.catastrophicCount ? "+" : "-";
+		return `${prefix} ${name} | ${wch} | ${cat} | ${races}`;
+	});
+
+	const leaderboardText =
+		// biome-ignore lint/style/useTemplate: <explanation>
+		"```diff\n" + header + "\n" + leaderboardLines.join("\n") + "\n```";
+
+	const totalRaces = leaderboard.reduce(
+		(acc, entry) => acc + entry.totalRaces,
+		0,
+	);
+	const totalCatastrophic = leaderboard.reduce(
+		(acc, entry) => acc + entry.catastrophicCount,
+		0,
+	);
+	const totalWorldChampion = leaderboard.reduce(
+		(acc, entry) => acc + entry.worldChampionCount,
+		0,
+	);
+
+	return new EmbedBuilder()
+		.setTitle(
+			`${seasonYear} Season ${seasonQuarter} - ${licenseCategory} Bottle Leaderboard`,
+		)
+		.setColor(0xff6b35)
+		.setDescription(leaderboardText)
+		.addFields({
+			name: "📊 • Summary",
+			value: `👑 WCH = World Champion Hotline | 💥🔥💥 CAT = Catastrophic\nTotal Races » \`${totalRaces}\`\nTotal 👑 » \`${totalWorldChampion}\` | Total 💥🔥💥 » \`${totalCatastrophic}\``,
 			inline: false,
 		})
 		.setFooter({

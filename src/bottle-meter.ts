@@ -1,5 +1,3 @@
-export type BottleLevel = "moderate" | "high" | "extreme" | "catastrophic";
-
 export type MichaelsBottleLevel =
 	| "world-champion-hotline"
 	| "no-bottleo"
@@ -86,8 +84,13 @@ export const calculateTeamBottleMeter = (options: {
 	totalIncidents: number;
 	totalLaps: number;
 }): MichaelsBottleMeterResult => {
-	const { teamPosition, avgTeamIRating, classResults, totalIncidents, totalLaps } =
-		options;
+	const {
+		teamPosition,
+		avgTeamIRating,
+		classResults,
+		totalIncidents,
+		totalLaps,
+	} = options;
 
 	// Sort class results by iRating to determine expected position
 	const sortedByIrating = [...classResults].sort(

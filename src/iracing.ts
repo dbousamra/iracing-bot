@@ -1,5 +1,5 @@
 import { calculateMichaelsBottleMeter } from "./bottle-meter";
-import type { Db, DriverStats } from "./db";
+import type { BottleLeaderboardEntry, Db, DriverStats } from "./db";
 import type {
 	DriverResult,
 	IRacingClient,
@@ -593,4 +593,153 @@ export const getSeasonLeaderboard = async (
 	console.log(`✅ Cached leaderboard data for ${cacheKey}`);
 
 	return sortedStats;
+};
+
+export const getBottleLeaderboard = async (
+	iRacingClient: IRacingClient,
+	db: Db,
+	options: {
+		seasonYear: number;
+		seasonQuarter: number;
+		licenseCategory: string;
+		forceRefresh?: boolean;
+		customerIds: number[];
+		customerNames?: Record<number, string>;
+	},
+): Promise<BottleLeaderboardEntry[]> => {
+	const {
+		seasonYear,
+		seasonQuarter,
+		licenseCategory,
+		forceRefresh,
+		customerIds,
+		customerNames,
+	} = options;
+
+	const customersToFetch = Object.fromEntries(
+		customerIds.map((id) => [customerNames?.[id] ?? id.toString(), id]),
+	);
+
+	const cacheKey = `bottle_${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}_${customerIds.sort().join("_")}`;
+
+	if (!forceRefresh) {
+		const cached = await db.getBottleLeaderboardCache(cacheKey);
+		if (cached) {
+			console.log(`Using cached bottle leaderboard data for ${cacheKey}`);
+			return cached.data;
+		}
+	}
+
+	console.log(`Fetching fresh bottle leaderboard data for ${cacheKey}...`);
+
+	const entries: BottleLeaderboardEntry[] = [];
+
+	for (const [name, customerId] of Object.entries(customersToFetch)) {
+		try {
+			console.log(`⬇️  Downloading bottle data for ${name}...`);
+
+			const seriesResults = await iRacingClient.searchSeries({
+				cust_id: customerId.toString(),
+				season_year: seasonYear.toString(),
+				season_quarter: seasonQuarter.toString(),
+				official_only: "true",
+				event_types: "5",
+			});
+
+			const categoryRaces = seriesResults.filter(
+				(race) => race.license_category === licenseCategory,
+			);
+
+			const sortedRaces = categoryRaces.sort(
+				(a, b) =>
+					new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+			);
+
+			const bottleResults = compact(
+				await map(
+					sortedRaces,
+					async (race) => {
+						const subsessionResults = await iRacingClient.getResults({
+							subsession_id: race.subsession_id,
+						});
+
+						const raceSession = subsessionResults.session_results.find(
+							(result) => result.simsession_name === "RACE",
+						);
+
+						if (!raceSession) return undefined;
+
+						const driverResult = raceSession.results.find(
+							(result) =>
+								result.cust_id?.toString() === customerId.toString(),
+						);
+
+						if (!driverResult) return undefined;
+
+						const classResults = raceSession.results.filter(
+							(res) => res.car_class_id === driverResult.car_class_id,
+						);
+
+						if (classResults.length < 3) return undefined;
+
+						const allDriversData = classResults.map((res) => ({
+							custId: res.cust_id ?? 0,
+							oldiRating: res.oldi_rating < 0 ? 0 : res.oldi_rating,
+							finishPos:
+								res.finish_position_in_class ?? res.finish_position ?? 0,
+						}));
+
+						try {
+							return calculateMichaelsBottleMeter({
+								finishPos:
+									driverResult.finish_position_in_class ??
+									driverResult.finish_position ??
+									0,
+								oldiRating:
+									driverResult.oldi_rating < 0
+										? 0
+										: driverResult.oldi_rating,
+								allDriversData,
+								incidents: driverResult.incidents,
+								laps: driverResult.laps_complete,
+							});
+						} catch {
+							return undefined;
+						}
+					},
+					{ concurrency: 8 },
+				),
+			);
+
+			let catastrophicCount = 0;
+			let worldChampionCount = 0;
+
+			for (const result of bottleResults) {
+				if (result.level === "catastrophic") catastrophicCount++;
+				if (result.level === "world-champion-hotline") worldChampionCount++;
+			}
+
+			if (bottleResults.length > 0) {
+				entries.push({
+					customerId,
+					customerName: name,
+					totalRaces: bottleResults.length,
+					catastrophicCount,
+					worldChampionCount,
+				});
+			}
+		} catch (error) {
+			console.error(`❌ Error fetching bottle data for ${name}:`, error);
+		}
+	}
+
+	// Sort by catastrophic count descending (biggest bottlers on top)
+	const sorted = entries.sort(
+		(a, b) => b.catastrophicCount - a.catastrophicCount,
+	);
+
+	await db.setBottleLeaderboardCache(cacheKey, sorted);
+	console.log(`✅ Cached bottle leaderboard data for ${cacheKey}`);
+
+	return sorted;
 };
