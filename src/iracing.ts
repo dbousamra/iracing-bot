@@ -733,9 +733,11 @@ export const getBottleLeaderboard = async (
 		}
 	}
 
-	// Sort by catastrophic count descending (biggest bottlers on top)
+	// Sort by world champion hotline percentage descending
 	const sorted = entries.sort(
-		(a, b) => b.catastrophicCount - a.catastrophicCount,
+		(a, b) =>
+			b.worldChampionCount / b.totalRaces -
+			a.worldChampionCount / a.totalRaces,
 	);
 
 	await db.setBottleLeaderboardCache(cacheKey, sorted);
