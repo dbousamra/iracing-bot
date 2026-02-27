@@ -75,21 +75,23 @@ Examples:
 	}
 
 	// Print table
-	const header = "Name                     | WCH | CAT | Races";
+	const header = "Name                     | WCH         | CAT         | Races";
 	const separator = "-".repeat(header.length);
 
-	console.log(`\n${"=".repeat(60)}`);
+	console.log(`\n${"=".repeat(65)}`);
 	console.log(
 		`  ${year} Season ${quarter} - ${category} Bottle Leaderboard`,
 	);
-	console.log(`${"=".repeat(60)}`);
+	console.log(`${"=".repeat(65)}`);
 	console.log(header);
 	console.log(separator);
 
 	for (const entry of leaderboard) {
 		const name = entry.customerName.padEnd(24, " ");
-		const wch = entry.worldChampionCount.toString().padEnd(3, " ");
-		const cat = entry.catastrophicCount.toString().padEnd(3, " ");
+		const wchPct = ((entry.worldChampionCount / entry.totalRaces) * 100).toFixed(0);
+		const catPct = ((entry.catastrophicCount / entry.totalRaces) * 100).toFixed(0);
+		const wch = `${entry.worldChampionCount} (${wchPct}%)`.padEnd(11, " ");
+		const cat = `${entry.catastrophicCount} (${catPct}%)`.padEnd(11, " ");
 		const races = entry.totalRaces.toString();
 		const indicator =
 			entry.worldChampionCount >= entry.catastrophicCount ? "🟢" : "🔴";
