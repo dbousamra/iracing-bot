@@ -19,7 +19,10 @@
       "Bash(pnpm build:*)",
       "Bash(pnpm tsx:*)",
       "Bash(pnpm install:*)",
-      "Bash(tsx:*)"
+      "Bash(tsx:*)",
+      "WebFetch(domain:garage61.net)",
+      "Bash(wc:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

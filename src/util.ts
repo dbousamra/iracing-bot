@@ -110,6 +110,7 @@ const catastrophicImages = [
 	"https://i.postimg.cc/x1nz8QGL/toto1.jpg",
 	"https://i.postimg.cc/9QC702PZ/toto2.webp",
 	"https://i.postimg.cc/T3fD1xjy/toto3.webp",
+	"https://i.postimg.cc/nr9k0Cbg/images.png",
 ];
 
 const getBottleMeterImage = (level: MichaelsBottleLevel): string | null => {
