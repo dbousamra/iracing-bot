@@ -1,4 +1,5 @@
 export type MichaelsBottleLevel =
+	| "bradbury"
 	| "world-champion-hotline"
 	| "no-bottleo"
 	| "low-moderate"
@@ -60,6 +61,9 @@ export const calculateMichaelsBottleMeter = (raceData: {
 	const totalCars = validDrivers.length;
 	const position = raceData.finishPos;
 
+	// Calculate chaos factor: proportion of drivers who finished 30%+ positions worse than expected
+	const chaosFactor = calculateChaosFactor(sortedDrivers, totalCars);
+
 	const { level, levelNumber, emoji, explanation } =
 		calculateMichaelBottleResult({
 			rank,
@@ -67,6 +71,7 @@ export const calculateMichaelsBottleMeter = (raceData: {
 			laps,
 			totalCars,
 			position,
+			chaosFactor,
 		});
 
 	return {
@@ -75,6 +80,26 @@ export const calculateMichaelsBottleMeter = (raceData: {
 		emoji,
 		explanation,
 	};
+};
+
+/**
+ * Calculates what proportion of drivers finished significantly worse than their
+ * iRating-expected position. A high chaos factor means lots of crashes/DNFs.
+ */
+const calculateChaosFactor = (
+	sortedByIRating: { oldiRating: number; finishPos: number }[],
+	totalCars: number,
+): number => {
+	const threshold = Math.max(0.3 * totalCars, 3);
+	let crashedCount = 0;
+	for (let i = 0; i < sortedByIRating.length; i++) {
+		const expectedPos = i + 1;
+		const actualPos = sortedByIRating[i].finishPos;
+		if (actualPos - expectedPos >= threshold) {
+			crashedCount++;
+		}
+	}
+	return crashedCount / totalCars;
 };
 
 export const calculateTeamBottleMeter = (options: {
@@ -124,13 +149,25 @@ export const calculateMichaelBottleResult = (params: {
 	laps: number;
 	totalCars: number;
 	position: number;
+	chaosFactor?: number;
 }): MichaelsBottleMeterResult => {
-	const { rank, incidents, laps, totalCars, position } = params;
+	const { rank, incidents, laps, totalCars, position, chaosFactor } = params;
 
 	const positionDiff = position - rank;
 	const expectedIncidents = Math.round(laps / 10 + 3);
 
 	if (position <= rank - 0.25 * totalCars) {
+		// Bradbury: finished way better than expected, but mostly because
+		// everyone else crashed out (chaos factor >= 40% of field)
+		if (chaosFactor !== undefined && chaosFactor >= 0.4) {
+			return {
+				level: "bradbury",
+				levelNumber: 1,
+				emoji: "⛸️",
+				explanation: `Finished P${position}, ${Math.abs(positionDiff)} places better than expected (P${rank}). Steven Bradbury special — stayed out of trouble while ${Math.round(chaosFactor * 100)}% of the field crashed and burned around them.`,
+			};
+		}
+
 		return {
 			level: "world-champion-hotline",
 			levelNumber: 1,

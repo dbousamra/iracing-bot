@@ -6,7 +6,7 @@ import {
 
 describe("calculateMichaelBottleResult", () => {
 	describe("Level 1: World Champion Hotline", () => {
-		it("should return world-champion when finishing way better than expected", () => {
+		it("should return world-champion-hotline when finishing way better than expected", () => {
 			// Expected P10 in 20-car field, finish P5 or better
 			// position <= rank - 0.25*totalCars => position <= 10 - 5 => position <= 5
 			const result = calculateMichaelBottleResult({
@@ -16,12 +16,12 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 20,
 				position: 5,
 			});
-			expect(result.level).toBe("world-champion");
+			expect(result.level).toBe("world-champion-hotline");
 			expect(result.levelNumber).toBe(1);
 			expect(result.emoji).toBe("👑");
 		});
 
-		it("should return world-champion for exact boundary", () => {
+		it("should return world-champion-hotline for exact boundary", () => {
 			const result = calculateMichaelBottleResult({
 				rank: 10,
 				incidents: 0,
@@ -30,6 +30,59 @@ describe("calculateMichaelBottleResult", () => {
 				position: 5,
 			});
 			expect(result.levelNumber).toBe(1);
+		});
+	});
+
+	describe("Bradbury", () => {
+		it("should return bradbury when finishing well but race was chaotic", () => {
+			// Expected P10 in 20-car field, finish P5 — but 50% of field crashed
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 0,
+				laps: 20,
+				totalCars: 20,
+				position: 5,
+				chaosFactor: 0.5,
+			});
+			expect(result.level).toBe("bradbury");
+			expect(result.levelNumber).toBe(1);
+			expect(result.emoji).toBe("⛸️");
+		});
+
+		it("should return world-champion-hotline when chaos factor is low", () => {
+			// Same good finish, but race was clean — no Bradbury
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 0,
+				laps: 20,
+				totalCars: 20,
+				position: 5,
+				chaosFactor: 0.2,
+			});
+			expect(result.level).toBe("world-champion-hotline");
+		});
+
+		it("should return world-champion-hotline when no chaos factor provided", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 0,
+				laps: 20,
+				totalCars: 20,
+				position: 5,
+			});
+			expect(result.level).toBe("world-champion-hotline");
+		});
+
+		it("should return bradbury at exact 40% chaos threshold", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 0,
+				laps: 20,
+				totalCars: 20,
+				position: 5,
+				chaosFactor: 0.4,
+			});
+			expect(result.level).toBe("bradbury");
 		});
 	});
 
@@ -44,7 +97,7 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 20,
 				position: 7,
 			});
-			expect(result.level).toBe("no-bottle");
+			expect(result.level).toBe("no-bottleo");
 			expect(result.levelNumber).toBe(2);
 			expect(result.emoji).toBe("🟢");
 		});
@@ -58,7 +111,7 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 20,
 				position: 7,
 			});
-			expect(result.level).not.toBe("no-bottle");
+			expect(result.level).not.toBe("no-bottleo");
 		});
 
 		it("should return no-bottle at exact incident boundary", () => {
@@ -70,7 +123,7 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 20,
 				position: 7,
 			});
-			expect(result.level).toBe("no-bottle");
+			expect(result.level).toBe("no-bottleo");
 		});
 	});
 
@@ -206,7 +259,7 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 20,
 				position: 10,
 			});
-			expect(result.level).toBe("no-bottle");
+			expect(result.level).toBe("no-bottleo");
 		});
 
 		it("should handle zero incidents", () => {
@@ -217,7 +270,7 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 20,
 				position: 7,
 			});
-			expect(result.level).toBe("no-bottle");
+			expect(result.level).toBe("no-bottleo");
 		});
 
 		it("should handle fractional calculations correctly", () => {
@@ -231,25 +284,25 @@ describe("calculateMichaelBottleResult", () => {
 				totalCars: 15,
 				position: 8,
 			});
-			expect(result.level).toBe("no-bottle");
+			expect(result.level).toBe("no-bottleo");
 		});
 	});
 
 	describe("Smoke test", () => {
 		const data = [
-			"6,25,49,26,55,world-champion",
-			"21,19,42,26,44,world-champion",
-			"6,58,7,3,7,world-champion",
-			"4,114,37,10,37,world-champion",
-			"9,62,21,6,46,world-champion",
-			"20,71,31,3,31,world-champion",
+			"6,25,49,26,55,world-champion-hotline",
+			"21,19,42,26,44,world-champion-hotline",
+			"6,58,7,3,7,world-champion-hotline",
+			"4,114,37,10,37,world-champion-hotline",
+			"9,62,21,6,46,world-champion-hotline",
+			"20,71,31,3,31,world-champion-hotline",
 
-			"0,132,11,10,31,no-bottle",
-			"8,99,38,42,52,no-bottle",
-			"11,90,31,32,36,no-bottle",
-			"15,121,24,22,28,no-bottle",
-			"6,36,1,1,15,no-bottle",
-			"2,85,24,22,39,no-bottle",
+			"0,132,11,10,31,no-bottleo",
+			"8,99,38,42,52,no-bottleo",
+			"11,90,31,32,36,no-bottleo",
+			"15,121,24,22,28,no-bottleo",
+			"6,36,1,1,15,no-bottleo",
+			"2,85,24,22,39,no-bottleo",
 
 			"20,78,22,26,27,low-moderate",
 			"15,21,16,16,49,low-moderate",

@@ -7,6 +7,7 @@ export type BottleLeaderboardEntry = {
 	totalRaces: number;
 	catastrophicCount: number;
 	worldChampionCount: number;
+	bradburyCount: number;
 };
 
 export type DriverStats = {

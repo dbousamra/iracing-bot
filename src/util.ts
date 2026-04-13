@@ -114,6 +114,8 @@ const catastrophicImages = [
 ];
 
 const getBottleMeterImage = (level: MichaelsBottleLevel): string | null => {
+	if (level === "bradbury")
+		return "https://i.postimg.cc/ncQshmRm/ermhwjjb0msxdtfwewja.jpg";
 	if (level === "world-champion-hotline") return pickRandom(celebrationImages);
 	if (level === "catastrophic") return pickRandom(catastrophicImages);
 	return null;
@@ -408,19 +410,21 @@ export const createBottleLeaderboardEmbed = (options: {
 }) => {
 	const { leaderboard, seasonYear, seasonQuarter, licenseCategory } = options;
 
-	const header = "  Name                   | WCH        | CAT        | R  ";
+	const header = "  Name                   | WCH        | BRD        | CAT        | R  ";
 
 	const leaderboardLines = leaderboard.map((entry) => {
 		const name = entry.customerName.padEnd(22, " ");
 		const wchPct = ((entry.worldChampionCount / entry.totalRaces) * 100).toFixed(0);
+		const brdPct = (((entry.bradburyCount ?? 0) / entry.totalRaces) * 100).toFixed(0);
 		const catPct = ((entry.catastrophicCount / entry.totalRaces) * 100).toFixed(0);
 		const wch = `${entry.worldChampionCount} (${wchPct}%)`.padEnd(10, " ");
+		const brd = `${entry.bradburyCount ?? 0} (${brdPct}%)`.padEnd(10, " ");
 		const cat = `${entry.catastrophicCount} (${catPct}%)`.padEnd(10, " ");
 		const races = entry.totalRaces.toString().padEnd(3, " ");
 
 		const prefix =
 			entry.worldChampionCount >= entry.catastrophicCount ? "+" : "-";
-		return `${prefix} ${name} | ${wch} | ${cat} | ${races}`;
+		return `${prefix} ${name} | ${wch} | ${brd} | ${cat} | ${races}`;
 	});
 
 	const leaderboardText =
@@ -439,6 +443,10 @@ export const createBottleLeaderboardEmbed = (options: {
 		(acc, entry) => acc + entry.worldChampionCount,
 		0,
 	);
+	const totalBradbury = leaderboard.reduce(
+		(acc, entry) => acc + (entry.bradburyCount ?? 0),
+		0,
+	);
 
 	return new EmbedBuilder()
 		.setTitle(
@@ -448,7 +456,7 @@ export const createBottleLeaderboardEmbed = (options: {
 		.setDescription(leaderboardText)
 		.addFields({
 			name: "📊 • Summary",
-			value: `👑 WCH = World Champion Hotline | 💥🔥💥 CAT = Catastrophic\nTotal Races » \`${totalRaces}\`\nTotal 👑 » \`${totalWorldChampion}\` | Total 💥🔥💥 » \`${totalCatastrophic}\``,
+			value: `👑 WCH = World Champion Hotline | ⛸️ BRD = Bradbury | 💥🔥💥 CAT = Catastrophic\nTotal Races » \`${totalRaces}\`\nTotal 👑 » \`${totalWorldChampion}\` | Total ⛸️ » \`${totalBradbury}\` | Total 💥🔥💥 » \`${totalCatastrophic}\``,
 			inline: false,
 		})
 		.setFooter({

@@ -713,10 +713,12 @@ export const getBottleLeaderboard = async (
 
 			let catastrophicCount = 0;
 			let worldChampionCount = 0;
+			let bradburyCount = 0;
 
 			for (const result of bottleResults) {
 				if (result.level === "catastrophic") catastrophicCount++;
 				if (result.level === "world-champion-hotline") worldChampionCount++;
+				if (result.level === "bradbury") bradburyCount++;
 			}
 
 			if (bottleResults.length > 0) {
@@ -726,6 +728,7 @@ export const getBottleLeaderboard = async (
 					totalRaces: bottleResults.length,
 					catastrophicCount,
 					worldChampionCount,
+					bradburyCount,
 				});
 			}
 		} catch (error) {
