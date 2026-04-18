@@ -410,16 +410,16 @@ export const createBottleLeaderboardEmbed = (options: {
 }) => {
 	const { leaderboard, seasonYear, seasonQuarter, licenseCategory } = options;
 
-	const header = "  Name                   | WCH        | BRD        | CAT        | R  ";
+	const header = "  Name             | WCH      | BRD      | CAT      | R  ";
 
 	const leaderboardLines = leaderboard.map((entry) => {
-		const name = entry.customerName.padEnd(22, " ");
+		const name = entry.customerName.padEnd(16, " ");
 		const wchPct = ((entry.worldChampionCount / entry.totalRaces) * 100).toFixed(0);
 		const brdPct = (((entry.bradburyCount ?? 0) / entry.totalRaces) * 100).toFixed(0);
 		const catPct = ((entry.catastrophicCount / entry.totalRaces) * 100).toFixed(0);
-		const wch = `${entry.worldChampionCount} (${wchPct}%)`.padEnd(10, " ");
-		const brd = `${entry.bradburyCount ?? 0} (${brdPct}%)`.padEnd(10, " ");
-		const cat = `${entry.catastrophicCount} (${catPct}%)`.padEnd(10, " ");
+		const wch = `${entry.worldChampionCount} (${wchPct}%)`.padEnd(8, " ");
+		const brd = `${entry.bradburyCount ?? 0} (${brdPct}%)`.padEnd(8, " ");
+		const cat = `${entry.catastrophicCount} (${catPct}%)`.padEnd(8, " ");
 		const races = entry.totalRaces.toString().padEnd(3, " ");
 
 		const prefix =
