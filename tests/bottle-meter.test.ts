@@ -57,7 +57,7 @@ describe("calculateMichaelBottleResult", () => {
 				laps: 20,
 				totalCars: 20,
 				position: 5,
-				chaosFactor: 0.2,
+				chaosFactor: 0.15,
 			});
 			expect(result.level).toBe("world-champion-hotline");
 		});
@@ -73,14 +73,14 @@ describe("calculateMichaelBottleResult", () => {
 			expect(result.level).toBe("world-champion-hotline");
 		});
 
-		it("should return bradbury at exact 40% chaos threshold", () => {
+		it("should return bradbury at exact 30% chaos threshold", () => {
 			const result = calculateMichaelBottleResult({
 				rank: 10,
 				incidents: 0,
 				laps: 20,
 				totalCars: 20,
 				position: 5,
-				chaosFactor: 0.4,
+				chaosFactor: 0.3,
 			});
 			expect(result.level).toBe("bradbury");
 		});

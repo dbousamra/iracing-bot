@@ -158,8 +158,8 @@ export const calculateMichaelBottleResult = (params: {
 
 	if (position <= rank - 0.25 * totalCars) {
 		// Bradbury: finished way better than expected, but mostly because
-		// everyone else crashed out (chaos factor >= 40% of field)
-		if (chaosFactor !== undefined && chaosFactor >= 0.4) {
+		// everyone else crashed out (chaos factor >= 30% of field)
+		if (chaosFactor !== undefined && chaosFactor >= 0.3) {
 			return {
 				level: "bradbury",
 				levelNumber: 1,
