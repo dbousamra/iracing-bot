@@ -282,10 +282,20 @@ export const createRaceEmbed = (race: GetLatestRaceResponse) => {
 				name: "📋 • __Details__",
 				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\`\nSOF » \`${race.sof}\`\nSplit » \`${race.split}\`\nClass rank » \`${race.iRatingRank}/${race.entries}\``,
 			},
-			{
-				name: "📊 • __Position__",
-				value: `Start » \`${race.startPos}/${race.entries}\`\nFinish » \`${race.finishPos}/${race.entries}\``,
-			},
+			(() => {
+				const medal =
+					race.finishPos === 1
+						? "🥇"
+						: race.finishPos === 2
+							? "🥈"
+							: race.finishPos === 3
+								? "🥉"
+								: null;
+				return {
+					name: medal ? `${medal} • __Podium!__` : "📊 • __Position__",
+					value: `Start » \`${race.startPos}/${race.entries}\`\nFinish » \`${race.finishPos}/${race.entries}\`${medal ? ` ${medal}` : ""}`,
+				};
+			})(),
 			{
 				name: "📉 • __Statistics__",
 				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
