@@ -1,6 +1,8 @@
 export type MichaelsBottleLevel =
 	| "bradbury"
 	| "world-champion-hotline"
+	| "dnf"
+	| "first-lap-disaster"
 	| "no-bottleo"
 	| "low-moderate"
 	| "high"
@@ -173,6 +175,27 @@ export const calculateMichaelBottleResult = (params: {
 			levelNumber: 1,
 			emoji: "👑",
 			explanation: `Finished P${position}, ${Math.abs(positionDiff)} places better than expected (P${rank}). Absolutely elite performance, finished ${Math.round(0.25 * totalCars)}+ positions above iRating expectation.`,
+		};
+	}
+
+	// Did 0 laps. Checked after the Bradbury/world-champion block so a freak
+	// great finish still wins, but before the position-based tiers — with no
+	// laps completed the finish-position math is meaningless.
+	if (laps === 0 && incidents > 4) {
+		return {
+			level: "first-lap-disaster",
+			levelNumber: 8,
+			emoji: "💥",
+			explanation: `Didn't complete a single lap and racked up ${incidents} incident points doing it — turn-one pile-up that likely collected half the field.`,
+		};
+	}
+
+	if (laps === 0) {
+		return {
+			level: "dnf",
+			levelNumber: 8,
+			emoji: "🏳️",
+			explanation: `Didn't complete a single lap${incidents > 0 ? ` (${incidents} incident points)` : ""}. DNS or an early exit — no race to speak of.`,
 		};
 	}
 

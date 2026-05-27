@@ -116,6 +116,10 @@ const catastrophicImages = [
 const getBottleMeterImage = (level: MichaelsBottleLevel): string | null => {
 	if (level === "bradbury")
 		return "https://i.postimg.cc/ncQshmRm/ermhwjjb0msxdtfwewja.jpg";
+	if (level === "dnf")
+		return "https://i.postimg.cc/Sk0tqvCG/73fe7bd2-7fc4-44dc-b9b3-8805f42188f9.png";
+	if (level === "first-lap-disaster")
+		return "https://i.postimg.cc/63FG04Z1/44c9b417-7df3-49e6-863d-d07c40c95485.png";
 	if (level === "world-champion-hotline") return pickRandom(celebrationImages);
 	if (level === "catastrophic") return pickRandom(catastrophicImages);
 	return null;

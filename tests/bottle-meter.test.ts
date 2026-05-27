@@ -86,6 +86,79 @@ describe("calculateMichaelBottleResult", () => {
 		});
 	});
 
+	describe("Zero-lap cases", () => {
+		it("should return dnf when 0 laps with low incidents", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 2,
+				laps: 0,
+				totalCars: 20,
+				position: 20,
+			});
+			expect(result.level).toBe("dnf");
+			expect(result.emoji).toBe("🏳️");
+		});
+
+		it("should return dnf when 0 laps with 0 incidents (DNS)", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 0,
+				laps: 0,
+				totalCars: 20,
+				position: 20,
+			});
+			expect(result.level).toBe("dnf");
+		});
+
+		it("should still be dnf at exactly 4 incidents (boundary, >4 required)", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 4,
+				laps: 0,
+				totalCars: 20,
+				position: 20,
+			});
+			expect(result.level).toBe("dnf");
+		});
+
+		it("should return first-lap-disaster when 0 laps with >4 incidents", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 5,
+				laps: 0,
+				totalCars: 20,
+				position: 20,
+			});
+			expect(result.level).toBe("first-lap-disaster");
+			expect(result.emoji).toBe("💥");
+		});
+
+		it("should return first-lap-disaster for a heavy pile-up", () => {
+			const result = calculateMichaelBottleResult({
+				rank: 5,
+				incidents: 16,
+				laps: 0,
+				totalCars: 30,
+				position: 30,
+			});
+			expect(result.level).toBe("first-lap-disaster");
+		});
+
+		it("should let an exceptional finish win even with 0 laps", () => {
+			// 0 laps but somehow finished way ahead with a chaotic field —
+			// Bradbury/champion is checked first, so it takes priority.
+			const result = calculateMichaelBottleResult({
+				rank: 10,
+				incidents: 8,
+				laps: 0,
+				totalCars: 20,
+				position: 5,
+				chaosFactor: 0.5,
+			});
+			expect(result.level).toBe("bradbury");
+		});
+	});
+
 	describe("Level 2: No Bottle-o", () => {
 		it("should return no-bottle when at expected position with low incidents", () => {
 			// Expected P5, finish P7 (within 0.1*20 = 2 positions)
