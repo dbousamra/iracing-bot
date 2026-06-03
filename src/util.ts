@@ -117,9 +117,9 @@ const getBottleMeterImage = (level: MichaelsBottleLevel): string | null => {
 	if (level === "bradbury")
 		return "https://i.postimg.cc/ncQshmRm/ermhwjjb0msxdtfwewja.jpg";
 	if (level === "dnf")
-		return "https://i.postimg.cc/Sk0tqvCG/73fe7bd2-7fc4-44dc-b9b3-8805f42188f9.png";
+		return "https://i.postimg.cc/BbMQ5Hbx/Clean-Shot-2026-06-03-at-21-23-07-2x.png";
 	if (level === "first-lap-disaster")
-		return "https://i.postimg.cc/63FG04Z1/44c9b417-7df3-49e6-863d-d07c40c95485.png";
+		return "https://i.postimg.cc/QdnKZGXq/Clean-Shot-2026-06-03-at-21-22-22-2x.png";
 	if (level === "world-champion-hotline") return pickRandom(celebrationImages);
 	if (level === "catastrophic") return pickRandom(catastrophicImages);
 	return null;
@@ -428,9 +428,17 @@ export const createBottleLeaderboardEmbed = (options: {
 
 	const leaderboardLines = leaderboard.map((entry) => {
 		const name = entry.customerName.padEnd(16, " ");
-		const wchPct = ((entry.worldChampionCount / entry.totalRaces) * 100).toFixed(0);
-		const brdPct = (((entry.bradburyCount ?? 0) / entry.totalRaces) * 100).toFixed(0);
-		const catPct = ((entry.catastrophicCount / entry.totalRaces) * 100).toFixed(0);
+		const wchPct = (
+			(entry.worldChampionCount / entry.totalRaces) *
+			100
+		).toFixed(0);
+		const brdPct = (
+			((entry.bradburyCount ?? 0) / entry.totalRaces) *
+			100
+		).toFixed(0);
+		const catPct = ((entry.catastrophicCount / entry.totalRaces) * 100).toFixed(
+			0,
+		);
 		const wch = `${entry.worldChampionCount} (${wchPct}%)`.padEnd(8, " ");
 		const brd = `${entry.bradburyCount ?? 0} (${brdPct}%)`.padEnd(8, " ");
 		const cat = `${entry.catastrophicCount} (${catPct}%)`.padEnd(8, " ");
@@ -515,7 +523,10 @@ export const pollLatestRaces = async (
 
 				if (isTeamRace(subsessionResults)) {
 					// Team race detected
-					const raceTeamId = getTeamIdForCustomer(subsessionResults, customerId);
+					const raceTeamId = getTeamIdForCustomer(
+						subsessionResults,
+						customerId,
+					);
 
 					if (!raceTeamId) {
 						log(
