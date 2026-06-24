@@ -19,10 +19,12 @@ import type {
 	IRacingClient,
 	ResultEntry,
 	SessionData,
+	TeamRosterMember,
 } from "./iracing-client";
 import {
 	createBottleLeaderboardEmbed,
 	createCareerStatsEmbed,
+	createDriverComparisonEmbed,
 	createRaceEmbed,
 	createSeasonLeaderboardEmbed,
 	createTeamRaceEmbed,
@@ -42,10 +44,7 @@ export const ping: Command = {
 	},
 };
 
-export const latestRace = (
-	iRacingClient: IRacingClient,
-	db: Db,
-): Command => ({
+export const latestRace = (iRacingClient: IRacingClient, db: Db): Command => ({
 	data: new SlashCommandBuilder()
 		.setName("latest_race")
 		.setDescription("Get the latest race for a team member")
@@ -108,10 +107,7 @@ export const latestRace = (
 	},
 });
 
-export const careerStats = (
-	iRacingClient: IRacingClient,
-	db: Db,
-): Command => ({
+export const careerStats = (iRacingClient: IRacingClient, db: Db): Command => ({
 	data: new SlashCommandBuilder()
 		.setName("career_stats")
 		.setDescription("Get comprehensive career statistics for a team member")
@@ -287,6 +283,192 @@ export const seasonLeaderboard = (
 				await interaction.editReply({
 					content:
 						"Failed to fetch season leaderboard data. Please try again later.",
+				});
+			} catch (interactionError) {
+				console.error(
+					"Failed to edit reply (interaction likely expired):",
+					interactionError,
+				);
+			}
+		}
+	},
+});
+
+export const compareDrivers = (
+	iRacingClient: IRacingClient,
+	db: Db,
+): Command => ({
+	data: new SlashCommandBuilder()
+		.setName("compare_drivers")
+		.setDescription(
+			"Compare two team drivers head-to-head for a season and category",
+		)
+		.addStringOption((option) =>
+			option
+				.setName("driver-one")
+				.setDescription("First driver name (as it appears on iRacing)")
+				.setRequired(true),
+		)
+		.addStringOption((option) =>
+			option
+				.setName("driver-two")
+				.setDescription("Second driver name (as it appears on iRacing)")
+				.setRequired(true),
+		)
+		.addStringOption((option) =>
+			option
+				.setName("category")
+				.setDescription("License category")
+				.setRequired(true)
+				.addChoices(
+					{ name: "Sports Car", value: "Sports Car" },
+					{ name: "Oval", value: "Oval" },
+					{ name: "Formula", value: "Formula" },
+					{ name: "Dirt Road", value: "Dirt Road" },
+					{ name: "Dirt Oval", value: "Dirt Oval" },
+				),
+		)
+		.addIntegerOption((option) =>
+			option
+				.setName("year")
+				.setDescription("Season year (e.g., 2026)")
+				.setRequired(true),
+		)
+		.addIntegerOption((option) =>
+			option
+				.setName("quarter")
+				.setDescription("Season quarter (1-4)")
+				.setRequired(true)
+				.setMinValue(1)
+				.setMaxValue(4),
+		)
+		.addBooleanOption((option) =>
+			option
+				.setName("refresh")
+				.setDescription("Force refresh data from iRacing (ignores cache)")
+				.setRequired(false),
+		),
+
+	execute: async (interaction: CommandInteraction): Promise<void> => {
+		if (!interaction.isChatInputCommand() || !interaction.guildId) {
+			return;
+		}
+
+		const driverOneName = interaction.options.getString("driver-one", true);
+		const driverTwoName = interaction.options.getString("driver-two", true);
+		const category = interaction.options.getString("category", true);
+		const year = interaction.options.getInteger("year", true);
+		const quarter = interaction.options.getInteger("quarter", true);
+		const forceRefresh = interaction.options.getBoolean("refresh") ?? false;
+
+		// Defer immediately - this may take time
+		await interaction.deferReply();
+
+		try {
+			const guildConfig = await db.getGuildConfig(interaction.guildId);
+
+			if (!guildConfig?.iracingTeamId) {
+				await interaction.editReply({
+					content:
+						"No team configured for this server. Ask an admin to run `/team_set <team-id>`",
+				});
+				return;
+			}
+
+			// Fetch team roster and resolve both drivers by name
+			const team = await iRacingClient.getTeam({
+				team_id: guildConfig.iracingTeamId,
+			});
+
+			const findMember = (name: string) =>
+				team.roster.find(
+					(m) => m.display_name.toLowerCase() === name.toLowerCase(),
+				);
+
+			const memberOne = findMember(driverOneName);
+			const memberTwo = findMember(driverTwoName);
+
+			const missing = [
+				memberOne ? null : driverOneName,
+				memberTwo ? null : driverTwoName,
+			].filter((n): n is string => n !== null);
+
+			if (missing.length > 0) {
+				await interaction.editReply({
+					content: `Driver(s) not found in team roster: ${missing
+						.map((n) => `"${n}"`)
+						.join(", ")}. Use /team_show to see available drivers.`,
+				});
+				return;
+			}
+
+			if (memberOne && memberTwo && memberOne.cust_id === memberTwo.cust_id) {
+				await interaction.editReply({
+					content: "Please pick two different drivers to compare.",
+				});
+				return;
+			}
+
+			// memberOne/memberTwo are guaranteed defined here (missing check above)
+			const customerIds = [
+				(memberOne as TeamRosterMember).cust_id,
+				(memberTwo as TeamRosterMember).cust_id,
+			];
+			const customerNames = {
+				[(memberOne as TeamRosterMember).cust_id]: (
+					memberOne as TeamRosterMember
+				).display_name,
+				[(memberTwo as TeamRosterMember).cust_id]: (
+					memberTwo as TeamRosterMember
+				).display_name,
+			};
+
+			// Reuse the season leaderboard computation - it already produces
+			// per-driver DriverStats filtered to a year/quarter/category.
+			const stats = await getSeasonLeaderboard(iRacingClient, db, {
+				seasonYear: year,
+				seasonQuarter: quarter,
+				licenseCategory: category,
+				forceRefresh,
+				customerIds,
+				customerNames,
+			});
+
+			const driverA = stats.find(
+				(s) => s.customerId === (memberOne as TeamRosterMember).cust_id,
+			);
+			const driverB = stats.find(
+				(s) => s.customerId === (memberTwo as TeamRosterMember).cust_id,
+			);
+
+			if (!driverA || !driverB) {
+				const noData = [
+					driverA ? null : (memberOne as TeamRosterMember).display_name,
+					driverB ? null : (memberTwo as TeamRosterMember).display_name,
+				]
+					.filter((n): n is string => n !== null)
+					.map((n) => `"${n}"`)
+					.join(", ");
+				await interaction.editReply({
+					content: `No race data found for ${noData} in ${year} Q${quarter} (${category}).`,
+				});
+				return;
+			}
+
+			const embed = createDriverComparisonEmbed({
+				driverA,
+				driverB,
+				seasonYear: year,
+				seasonQuarter: quarter,
+				licenseCategory: category,
+			});
+
+			await interaction.editReply({ embeds: [embed] });
+		} catch (err) {
+			console.error("Failed to compare drivers:", err);
+			try {
+				await interaction.editReply({
+					content: "Failed to fetch driver comparison data.",
 				});
 			} catch (interactionError) {
 				console.error(
@@ -823,6 +1005,7 @@ export const getCommands = (iRacingClient: IRacingClient, db: Db) => {
 		ping,
 		latest_race: latestRace(iRacingClient, db),
 		career_stats: careerStats(iRacingClient, db),
+		compare_drivers: compareDrivers(iRacingClient, db),
 		season_leaderboard: seasonLeaderboard(iRacingClient, db),
 		bottle_leaderboard: bottleLeaderboard(iRacingClient, db),
 		show_race: showRace(iRacingClient, db),

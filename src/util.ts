@@ -419,6 +419,149 @@ export const createSeasonLeaderboardEmbed = (options: {
 		.setTimestamp();
 };
 
+export const createDriverComparisonEmbed = (options: {
+	driverA: DriverStats;
+	driverB: DriverStats;
+	seasonYear: number;
+	seasonQuarter: number;
+	licenseCategory: string;
+}) => {
+	const { driverA, driverB, seasonYear, seasonQuarter, licenseCategory } =
+		options;
+
+	// Each row: [label, valueA, valueB, winner] where winner is "A", "B", or "="
+	type Row = { label: string; a: string; b: string; winner: "A" | "B" | "=" };
+
+	const cmp = (
+		a: number,
+		b: number,
+		higherIsBetter: boolean,
+	): "A" | "B" | "=" => {
+		if (a === b) return "=";
+		const aWins = higherIsBetter ? a > b : a < b;
+		return aWins ? "A" : "B";
+	};
+
+	const signed = (n: number, digits = 0) =>
+		n >= 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits);
+
+	const rows: Row[] = [
+		{
+			label: "Races",
+			a: driverA.totalRaces.toString(),
+			b: driverB.totalRaces.toString(),
+			winner: cmp(driverA.totalRaces, driverB.totalRaces, true),
+		},
+		{
+			label: "Wins",
+			a: driverA.totalWins.toString(),
+			b: driverB.totalWins.toString(),
+			winner: cmp(driverA.totalWins, driverB.totalWins, true),
+		},
+		{
+			label: "iRating",
+			a: driverA.endingIrating.toString(),
+			b: driverB.endingIrating.toString(),
+			winner: cmp(driverA.endingIrating, driverB.endingIrating, true),
+		},
+		{
+			label: "iR Gain",
+			a: signed(driverA.iratingGain),
+			b: signed(driverB.iratingGain),
+			winner: cmp(driverA.iratingGain, driverB.iratingGain, true),
+		},
+		{
+			label: "Safety Rt",
+			a: driverA.endingSr.toFixed(2),
+			b: driverB.endingSr.toFixed(2),
+			winner: cmp(driverA.endingSr, driverB.endingSr, true),
+		},
+		{
+			label: "SR Gain",
+			a: signed(driverA.srGain, 2),
+			b: signed(driverB.srGain, 2),
+			winner: cmp(driverA.srGain, driverB.srGain, true),
+		},
+		{
+			label: "Avg Start",
+			a: driverA.averageStartPosition.toFixed(1),
+			b: driverB.averageStartPosition.toFixed(1),
+			winner: cmp(
+				driverA.averageStartPosition,
+				driverB.averageStartPosition,
+				false,
+			),
+		},
+		{
+			label: "Avg Finish",
+			a: driverA.averageFinishPosition.toFixed(1),
+			b: driverB.averageFinishPosition.toFixed(1),
+			winner: cmp(
+				driverA.averageFinishPosition,
+				driverB.averageFinishPosition,
+				false,
+			),
+		},
+		{
+			label: "Avg Incidents",
+			a: driverA.averageIncidents.toFixed(2),
+			b: driverB.averageIncidents.toFixed(2),
+			winner: cmp(driverA.averageIncidents, driverB.averageIncidents, false),
+		},
+	];
+
+	// Build a monospace table. Use diff syntax so winning side is highlighted.
+	const labelWidth = Math.max(...rows.map((r) => r.label.length));
+	const colWidth = Math.max(
+		driverA.customerName.length,
+		driverB.customerName.length,
+		...rows.flatMap((r) => [r.a.length, r.b.length]),
+		8,
+	);
+
+	const header = `${"".padEnd(labelWidth)}   ${driverA.customerName.padEnd(
+		colWidth,
+	)} | ${driverB.customerName.padEnd(colWidth)}`;
+
+	const lines = rows.map((row) => {
+		// Prefix marks who wins this row: + favours A, - favours B, space for tie
+		const prefix = row.winner === "A" ? "+" : row.winner === "B" ? "-" : " ";
+		return `${prefix} ${row.label.padEnd(labelWidth)} ${row.a.padEnd(
+			colWidth,
+		)} | ${row.b.padEnd(colWidth)}`;
+	});
+
+	const tableText =
+		// biome-ignore lint/style/useTemplate: readability of multi-line block
+		"```diff\n" + header + "\n" + lines.join("\n") + "\n```";
+
+	// Tally category wins (ignoring ties) for an overall verdict.
+	const aWins = rows.filter((r) => r.winner === "A").length;
+	const bWins = rows.filter((r) => r.winner === "B").length;
+	const verdict =
+		aWins > bWins
+			? `🏆 **${driverA.customerName}** leads ${aWins}–${bWins}`
+			: bWins > aWins
+				? `🏆 **${driverB.customerName}** leads ${bWins}–${aWins}`
+				: `🤝 Dead heat ${aWins}–${bWins}`;
+
+	return new EmbedBuilder()
+		.setTitle(`⚔️ ${driverA.customerName} vs ${driverB.customerName}`)
+		.setColor(0x9b59b6) // Purple for head-to-head comparisons
+		.setDescription(
+			`${seasonYear} Season ${seasonQuarter} • ${licenseCategory}\n\nLegend: \`+\` favours ${driverA.customerName}, \`-\` favours ${driverB.customerName}\n${tableText}`,
+		)
+		.addFields({
+			name: "📊 • Verdict",
+			value: verdict,
+			inline: false,
+		})
+		.setFooter({
+			text: "Data cached for 24 hours. Use refresh:true to force update.",
+		})
+		.setTimestamp();
+};
+
 export const createBottleLeaderboardEmbed = (options: {
 	leaderboard: BottleLeaderboardEntry[];
 	seasonYear: number;
