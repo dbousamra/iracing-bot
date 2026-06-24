@@ -410,6 +410,72 @@ export const getCareerStats = async (
 
 export type GetCareerStatsResponse = Awaited<ReturnType<typeof getCareerStats>>;
 
+// iRacing career-stats category ids, keyed by the command's license-category
+// choices. Career stats expose "Formula Car" / "Sports Car" etc. as distinct
+// categories, so we match on the stable id rather than the display name.
+export const CAREER_CATEGORY_IDS: Record<string, number> = {
+	Oval: 1,
+	"Sports Car": 5,
+	Formula: 6,
+	"Dirt Oval": 3,
+	"Dirt Road": 4,
+};
+
+export type CareerCategoryStats = {
+	customerId: number;
+	customerName: string;
+	starts: number;
+	wins: number;
+	winPercentage: number;
+	top5: number;
+	poles: number;
+	laps: number;
+	lapsLed: number;
+	avgFinishPosition: number;
+	avgIncidents: number;
+};
+
+// All-time career stats for a single driver in one license category.
+// Returns null if the driver has never started a race in that category.
+export const getCareerCategoryStats = async (
+	iRacingClient: IRacingClient,
+	options: {
+		customerId: number;
+		customerName: string;
+		licenseCategory: string;
+	},
+): Promise<CareerCategoryStats | null> => {
+	const { customerId, customerName, licenseCategory } = options;
+
+	const categoryId = CAREER_CATEGORY_IDS[licenseCategory];
+	if (categoryId === undefined) {
+		return null;
+	}
+
+	const careerStats = await iRacingClient.getMemberCareerStats({
+		cust_id: customerId,
+	});
+
+	const stat = careerStats.stats.find((s) => s.category_id === categoryId);
+	if (!stat || stat.starts === 0) {
+		return null;
+	}
+
+	return {
+		customerId,
+		customerName,
+		starts: stat.starts,
+		wins: stat.wins,
+		winPercentage: stat.win_percentage,
+		top5: stat.top5,
+		poles: stat.poles,
+		laps: stat.laps,
+		lapsLed: stat.laps_led,
+		avgFinishPosition: stat.avg_finish_position,
+		avgIncidents: stat.avg_incidents,
+	};
+};
+
 const calculateStats = (
 	results: {
 		subsessionResults: SubsessionResults;
@@ -686,8 +752,7 @@ export const getBottleLeaderboard = async (
 						if (!raceSession) return undefined;
 
 						const driverResult = raceSession.results.find(
-							(result) =>
-								result.cust_id?.toString() === customerId.toString(),
+							(result) => result.cust_id?.toString() === customerId.toString(),
 						);
 
 						if (!driverResult) return undefined;
@@ -752,8 +817,7 @@ export const getBottleLeaderboard = async (
 	// Sort by world champion hotline percentage descending
 	const sorted = entries.sort(
 		(a, b) =>
-			b.worldChampionCount / b.totalRaces -
-			a.worldChampionCount / a.totalRaces,
+			b.worldChampionCount / b.totalRaces - a.worldChampionCount / a.totalRaces,
 	);
 
 	await db.setBottleLeaderboardCache(cacheKey, sorted);

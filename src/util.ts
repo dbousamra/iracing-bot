@@ -8,6 +8,7 @@ import type { Command } from "./commands";
 import { config } from "./config";
 import type { BottleLeaderboardEntry, Db, DriverStats } from "./db";
 import {
+	type CareerCategoryStats,
 	type GetCareerStatsResponse,
 	type GetLatestRaceResponse,
 	type TeamRaceData,
@@ -419,109 +420,51 @@ export const createSeasonLeaderboardEmbed = (options: {
 		.setTimestamp();
 };
 
-export const createDriverComparisonEmbed = (options: {
-	driverA: DriverStats;
-	driverB: DriverStats;
-	seasonYear: number;
-	seasonQuarter: number;
-	licenseCategory: string;
+// A single head-to-head row. `winner` marks who wins it; `counts: false`
+// shows the row for context but excludes it from the verdict tally.
+type ComparisonRow = {
+	label: string;
+	a: string;
+	b: string;
+	winner: "A" | "B" | "=";
+	counts?: boolean;
+};
+
+// Compare two numbers, returning which side wins (or a tie).
+const compareMetric = (
+	a: number,
+	b: number,
+	higherIsBetter: boolean,
+): "A" | "B" | "=" => {
+	if (a === b) return "=";
+	const aWins = higherIsBetter ? a > b : a < b;
+	return aWins ? "A" : "B";
+};
+
+const signedValue = (n: number, digits = 0) =>
+	n >= 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits);
+
+// Shared renderer for head-to-head comparison embeds (season and all-time).
+const buildComparisonEmbed = (options: {
+	nameA: string;
+	nameB: string;
+	subtitle: string;
+	rows: ComparisonRow[];
 }) => {
-	const { driverA, driverB, seasonYear, seasonQuarter, licenseCategory } =
-		options;
-
-	// Each row: [label, valueA, valueB, winner] where winner is "A", "B", or "="
-	type Row = { label: string; a: string; b: string; winner: "A" | "B" | "=" };
-
-	const cmp = (
-		a: number,
-		b: number,
-		higherIsBetter: boolean,
-	): "A" | "B" | "=" => {
-		if (a === b) return "=";
-		const aWins = higherIsBetter ? a > b : a < b;
-		return aWins ? "A" : "B";
-	};
-
-	const signed = (n: number, digits = 0) =>
-		n >= 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits);
-
-	const rows: Row[] = [
-		{
-			label: "Races",
-			a: driverA.totalRaces.toString(),
-			b: driverB.totalRaces.toString(),
-			winner: cmp(driverA.totalRaces, driverB.totalRaces, true),
-		},
-		{
-			label: "Wins",
-			a: driverA.totalWins.toString(),
-			b: driverB.totalWins.toString(),
-			winner: cmp(driverA.totalWins, driverB.totalWins, true),
-		},
-		{
-			label: "iRating",
-			a: driverA.endingIrating.toString(),
-			b: driverB.endingIrating.toString(),
-			winner: cmp(driverA.endingIrating, driverB.endingIrating, true),
-		},
-		{
-			label: "iR Gain",
-			a: signed(driverA.iratingGain),
-			b: signed(driverB.iratingGain),
-			winner: cmp(driverA.iratingGain, driverB.iratingGain, true),
-		},
-		{
-			label: "Safety Rt",
-			a: driverA.endingSr.toFixed(2),
-			b: driverB.endingSr.toFixed(2),
-			winner: cmp(driverA.endingSr, driverB.endingSr, true),
-		},
-		{
-			label: "SR Gain",
-			a: signed(driverA.srGain, 2),
-			b: signed(driverB.srGain, 2),
-			winner: cmp(driverA.srGain, driverB.srGain, true),
-		},
-		{
-			label: "Avg Start",
-			a: driverA.averageStartPosition.toFixed(1),
-			b: driverB.averageStartPosition.toFixed(1),
-			winner: cmp(
-				driverA.averageStartPosition,
-				driverB.averageStartPosition,
-				false,
-			),
-		},
-		{
-			label: "Avg Finish",
-			a: driverA.averageFinishPosition.toFixed(1),
-			b: driverB.averageFinishPosition.toFixed(1),
-			winner: cmp(
-				driverA.averageFinishPosition,
-				driverB.averageFinishPosition,
-				false,
-			),
-		},
-		{
-			label: "Avg Incidents",
-			a: driverA.averageIncidents.toFixed(2),
-			b: driverB.averageIncidents.toFixed(2),
-			winner: cmp(driverA.averageIncidents, driverB.averageIncidents, false),
-		},
-	];
+	const { nameA, nameB, subtitle, rows } = options;
 
 	// Build a monospace table. Use diff syntax so winning side is highlighted.
 	const labelWidth = Math.max(...rows.map((r) => r.label.length));
 	const colWidth = Math.max(
-		driverA.customerName.length,
-		driverB.customerName.length,
+		nameA.length,
+		nameB.length,
 		...rows.flatMap((r) => [r.a.length, r.b.length]),
 		8,
 	);
 
-	const header = `${"".padEnd(labelWidth)}   ${driverA.customerName.padEnd(
+	const header = `${"".padEnd(labelWidth)}   ${nameA.padEnd(
 		colWidth,
-	)} | ${driverB.customerName.padEnd(colWidth)}`;
+	)} | ${nameB.padEnd(colWidth)}`;
 
 	const lines = rows.map((row) => {
 		// Prefix marks who wins this row: + favours A, - favours B, space for tie
@@ -535,31 +478,199 @@ export const createDriverComparisonEmbed = (options: {
 		// biome-ignore lint/style/useTemplate: readability of multi-line block
 		"```diff\n" + header + "\n" + lines.join("\n") + "\n```";
 
-	// Tally category wins (ignoring ties) for an overall verdict.
-	const aWins = rows.filter((r) => r.winner === "A").length;
-	const bWins = rows.filter((r) => r.winner === "B").length;
+	// Tally wins for the verdict, ignoring ties and context-only rows.
+	const scored = rows.filter((r) => r.counts !== false);
+	const aWins = scored.filter((r) => r.winner === "A").length;
+	const bWins = scored.filter((r) => r.winner === "B").length;
 	const verdict =
 		aWins > bWins
-			? `🏆 **${driverA.customerName}** leads ${aWins}–${bWins}`
+			? `🏆 **${nameA}** leads ${aWins}–${bWins}`
 			: bWins > aWins
-				? `🏆 **${driverB.customerName}** leads ${bWins}–${aWins}`
+				? `🏆 **${nameB}** leads ${bWins}–${aWins}`
 				: `🤝 Dead heat ${aWins}–${bWins}`;
 
 	return new EmbedBuilder()
-		.setTitle(`⚔️ ${driverA.customerName} vs ${driverB.customerName}`)
+		.setTitle(`⚔️ ${nameA} vs ${nameB}`)
 		.setColor(0x9b59b6) // Purple for head-to-head comparisons
 		.setDescription(
-			`${seasonYear} Season ${seasonQuarter} • ${licenseCategory}\n\nLegend: \`+\` favours ${driverA.customerName}, \`-\` favours ${driverB.customerName}\n${tableText}`,
+			`${subtitle}\n\nLegend: \`+\` favours ${nameA}, \`-\` favours ${nameB}\n${tableText}`,
 		)
 		.addFields({
 			name: "📊 • Verdict",
 			value: verdict,
 			inline: false,
 		})
-		.setFooter({
-			text: "Data cached for 24 hours. Use refresh:true to force update.",
-		})
 		.setTimestamp();
+};
+
+export const createDriverComparisonEmbed = (options: {
+	driverA: DriverStats;
+	driverB: DriverStats;
+	seasonYear: number;
+	seasonQuarter: number;
+	licenseCategory: string;
+}) => {
+	const { driverA, driverB, seasonYear, seasonQuarter, licenseCategory } =
+		options;
+
+	const rows: ComparisonRow[] = [
+		{
+			label: "Races",
+			a: driverA.totalRaces.toString(),
+			b: driverB.totalRaces.toString(),
+			winner: compareMetric(driverA.totalRaces, driverB.totalRaces, true),
+		},
+		{
+			label: "Wins",
+			a: driverA.totalWins.toString(),
+			b: driverB.totalWins.toString(),
+			winner: compareMetric(driverA.totalWins, driverB.totalWins, true),
+		},
+		{
+			label: "iRating",
+			a: driverA.endingIrating.toString(),
+			b: driverB.endingIrating.toString(),
+			winner: compareMetric(driverA.endingIrating, driverB.endingIrating, true),
+		},
+		{
+			label: "iR Gain",
+			a: signedValue(driverA.iratingGain),
+			b: signedValue(driverB.iratingGain),
+			winner: compareMetric(driverA.iratingGain, driverB.iratingGain, true),
+		},
+		{
+			label: "Safety Rt",
+			a: driverA.endingSr.toFixed(2),
+			b: driverB.endingSr.toFixed(2),
+			winner: compareMetric(driverA.endingSr, driverB.endingSr, true),
+		},
+		{
+			label: "SR Gain",
+			a: signedValue(driverA.srGain, 2),
+			b: signedValue(driverB.srGain, 2),
+			winner: compareMetric(driverA.srGain, driverB.srGain, true),
+		},
+		{
+			label: "Avg Start",
+			a: driverA.averageStartPosition.toFixed(1),
+			b: driverB.averageStartPosition.toFixed(1),
+			winner: compareMetric(
+				driverA.averageStartPosition,
+				driverB.averageStartPosition,
+				false,
+			),
+		},
+		{
+			label: "Avg Finish",
+			a: driverA.averageFinishPosition.toFixed(1),
+			b: driverB.averageFinishPosition.toFixed(1),
+			winner: compareMetric(
+				driverA.averageFinishPosition,
+				driverB.averageFinishPosition,
+				false,
+			),
+		},
+		{
+			label: "Avg Incidents",
+			a: driverA.averageIncidents.toFixed(2),
+			b: driverB.averageIncidents.toFixed(2),
+			winner: compareMetric(
+				driverA.averageIncidents,
+				driverB.averageIncidents,
+				false,
+			),
+		},
+	];
+
+	return buildComparisonEmbed({
+		nameA: driverA.customerName,
+		nameB: driverB.customerName,
+		subtitle: `${seasonYear} Season ${seasonQuarter} • ${licenseCategory}`,
+		rows,
+	}).setFooter({
+		text: "Data cached for 24 hours. Use refresh:true to force update.",
+	});
+};
+
+export const createCareerComparisonEmbed = (options: {
+	driverA: CareerCategoryStats;
+	driverB: CareerCategoryStats;
+	licenseCategory: string;
+}) => {
+	const { driverA, driverB, licenseCategory } = options;
+
+	const rows: ComparisonRow[] = [
+		// Volume rows: shown for context but excluded from the verdict tally,
+		// since more starts/laps reflects activity rather than skill.
+		{
+			label: "Starts",
+			a: driverA.starts.toString(),
+			b: driverB.starts.toString(),
+			winner: compareMetric(driverA.starts, driverB.starts, true),
+			counts: false,
+		},
+		{
+			label: "Wins",
+			a: driverA.wins.toString(),
+			b: driverB.wins.toString(),
+			winner: compareMetric(driverA.wins, driverB.wins, true),
+		},
+		{
+			label: "Win %",
+			a: driverA.winPercentage.toFixed(1),
+			b: driverB.winPercentage.toFixed(1),
+			winner: compareMetric(driverA.winPercentage, driverB.winPercentage, true),
+		},
+		{
+			label: "Top 5s",
+			a: driverA.top5.toString(),
+			b: driverB.top5.toString(),
+			winner: compareMetric(driverA.top5, driverB.top5, true),
+		},
+		{
+			label: "Poles",
+			a: driverA.poles.toString(),
+			b: driverB.poles.toString(),
+			winner: compareMetric(driverA.poles, driverB.poles, true),
+		},
+		{
+			label: "Avg Finish",
+			a: driverA.avgFinishPosition.toFixed(1),
+			b: driverB.avgFinishPosition.toFixed(1),
+			winner: compareMetric(
+				driverA.avgFinishPosition,
+				driverB.avgFinishPosition,
+				false,
+			),
+		},
+		{
+			label: "Avg Incidents",
+			a: driverA.avgIncidents.toFixed(2),
+			b: driverB.avgIncidents.toFixed(2),
+			winner: compareMetric(driverA.avgIncidents, driverB.avgIncidents, false),
+		},
+		{
+			label: "Laps",
+			a: driverA.laps.toLocaleString(),
+			b: driverB.laps.toLocaleString(),
+			winner: compareMetric(driverA.laps, driverB.laps, true),
+			counts: false,
+		},
+		{
+			label: "Laps Led",
+			a: driverA.lapsLed.toLocaleString(),
+			b: driverB.lapsLed.toLocaleString(),
+			winner: compareMetric(driverA.lapsLed, driverB.lapsLed, true),
+			counts: false,
+		},
+	];
+
+	return buildComparisonEmbed({
+		nameA: driverA.customerName,
+		nameB: driverB.customerName,
+		subtitle: `All-Time Career • ${licenseCategory}`,
+		rows,
+	});
 };
 
 export const createBottleLeaderboardEmbed = (options: {

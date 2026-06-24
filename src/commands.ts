@@ -9,6 +9,7 @@ import { config } from "./config";
 import type { Db } from "./db";
 import {
 	getBottleLeaderboard,
+	getCareerCategoryStats,
 	getCareerStats,
 	getLatestRace,
 	getSeasonLeaderboard,
@@ -23,6 +24,7 @@ import type {
 } from "./iracing-client";
 import {
 	createBottleLeaderboardEmbed,
+	createCareerComparisonEmbed,
 	createCareerStatsEmbed,
 	createDriverComparisonEmbed,
 	createRaceEmbed,
@@ -301,7 +303,7 @@ export const compareDrivers = (
 	data: new SlashCommandBuilder()
 		.setName("compare_drivers")
 		.setDescription(
-			"Compare two team drivers head-to-head for a season and category",
+			"Compare two team drivers head-to-head (omit year/quarter for all-time)",
 		)
 		.addStringOption((option) =>
 			option
@@ -331,21 +333,23 @@ export const compareDrivers = (
 		.addIntegerOption((option) =>
 			option
 				.setName("year")
-				.setDescription("Season year (e.g., 2026)")
-				.setRequired(true),
+				.setDescription("Season year (e.g., 2026). Omit for all-time career")
+				.setRequired(false),
 		)
 		.addIntegerOption((option) =>
 			option
 				.setName("quarter")
-				.setDescription("Season quarter (1-4)")
-				.setRequired(true)
+				.setDescription("Season quarter (1-4). Omit for all-time career")
+				.setRequired(false)
 				.setMinValue(1)
 				.setMaxValue(4),
 		)
 		.addBooleanOption((option) =>
 			option
 				.setName("refresh")
-				.setDescription("Force refresh data from iRacing (ignores cache)")
+				.setDescription(
+					"Force refresh data from iRacing (ignores cache, season only)",
+				)
 				.setRequired(false),
 		),
 
@@ -357,9 +361,20 @@ export const compareDrivers = (
 		const driverOneName = interaction.options.getString("driver-one", true);
 		const driverTwoName = interaction.options.getString("driver-two", true);
 		const category = interaction.options.getString("category", true);
-		const year = interaction.options.getInteger("year", true);
-		const quarter = interaction.options.getInteger("quarter", true);
+		const year = interaction.options.getInteger("year");
+		const quarter = interaction.options.getInteger("quarter");
 		const forceRefresh = interaction.options.getBoolean("refresh") ?? false;
+
+		// year + quarter are all-or-nothing: both present = season comparison,
+		// both absent = all-time career comparison.
+		if ((year === null) !== (quarter === null)) {
+			await interaction.reply({
+				content:
+					"Provide both `year` and `quarter` for a season comparison, or omit both for an all-time career comparison.",
+				ephemeral: true,
+			});
+			return;
+		}
 
 		// Defer immediately - this may take time
 		await interaction.deferReply();
@@ -410,21 +425,57 @@ export const compareDrivers = (
 			}
 
 			// memberOne/memberTwo are guaranteed defined here (missing check above)
-			const customerIds = [
-				(memberOne as TeamRosterMember).cust_id,
-				(memberTwo as TeamRosterMember).cust_id,
-			];
+			const driverOne = memberOne as TeamRosterMember;
+			const driverTwo = memberTwo as TeamRosterMember;
+
+			if (year === null || quarter === null) {
+				// All-time: pull each driver's lifetime career stats for the
+				// category. Independent per-driver fetches, so run them together.
+				const [careerA, careerB] = await Promise.all([
+					getCareerCategoryStats(iRacingClient, {
+						customerId: driverOne.cust_id,
+						customerName: driverOne.display_name,
+						licenseCategory: category,
+					}),
+					getCareerCategoryStats(iRacingClient, {
+						customerId: driverTwo.cust_id,
+						customerName: driverTwo.display_name,
+						licenseCategory: category,
+					}),
+				]);
+
+				if (!careerA || !careerB) {
+					const noData = [
+						careerA ? null : driverOne.display_name,
+						careerB ? null : driverTwo.display_name,
+					]
+						.filter((n): n is string => n !== null)
+						.map((n) => `"${n}"`)
+						.join(", ");
+					await interaction.editReply({
+						content: `No all-time ${category} race data found for ${noData}.`,
+					});
+					return;
+				}
+
+				const embed = createCareerComparisonEmbed({
+					driverA: careerA,
+					driverB: careerB,
+					licenseCategory: category,
+				});
+
+				await interaction.editReply({ embeds: [embed] });
+				return;
+			}
+
+			// Season comparison. Reuse the season leaderboard computation - it
+			// already produces per-driver DriverStats for a year/quarter/category.
+			const customerIds = [driverOne.cust_id, driverTwo.cust_id];
 			const customerNames = {
-				[(memberOne as TeamRosterMember).cust_id]: (
-					memberOne as TeamRosterMember
-				).display_name,
-				[(memberTwo as TeamRosterMember).cust_id]: (
-					memberTwo as TeamRosterMember
-				).display_name,
+				[driverOne.cust_id]: driverOne.display_name,
+				[driverTwo.cust_id]: driverTwo.display_name,
 			};
 
-			// Reuse the season leaderboard computation - it already produces
-			// per-driver DriverStats filtered to a year/quarter/category.
 			const stats = await getSeasonLeaderboard(iRacingClient, db, {
 				seasonYear: year,
 				seasonQuarter: quarter,
@@ -434,17 +485,13 @@ export const compareDrivers = (
 				customerNames,
 			});
 
-			const driverA = stats.find(
-				(s) => s.customerId === (memberOne as TeamRosterMember).cust_id,
-			);
-			const driverB = stats.find(
-				(s) => s.customerId === (memberTwo as TeamRosterMember).cust_id,
-			);
+			const driverA = stats.find((s) => s.customerId === driverOne.cust_id);
+			const driverB = stats.find((s) => s.customerId === driverTwo.cust_id);
 
 			if (!driverA || !driverB) {
 				const noData = [
-					driverA ? null : (memberOne as TeamRosterMember).display_name,
-					driverB ? null : (memberTwo as TeamRosterMember).display_name,
+					driverA ? null : driverOne.display_name,
+					driverB ? null : driverTwo.display_name,
 				]
 					.filter((n): n is string => n !== null)
 					.map((n) => `"${n}"`)
