@@ -26,8 +26,8 @@ export interface BottleResult {
 }
 
 export const calculateMichaelsBottleMeter = (raceData: {
+	custId: number;
 	finishPos: number;
-	oldiRating: number;
 	allDriversData: { custId: number; oldiRating: number; finishPos: number }[];
 	incidents: number;
 	laps: number;
@@ -47,9 +47,12 @@ export const calculateMichaelsBottleMeter = (raceData: {
 		return validDrivers.indexOf(a) - validDrivers.indexOf(b);
 	});
 
-	// Find the driver's expected position based on their iRating rank
+	// Find the driver's expected position by their customer id. Matching by
+	// iRating was fragile: the tracked driver's iRating can come from a
+	// different API than allDriversData (and gets clamped for unrated drivers),
+	// so equal-value lookups missed and ties resolved to the wrong driver.
 	const driverIndex = sortedDrivers.findIndex(
-		(d) => d.oldiRating === raceData.oldiRating,
+		(d) => d.custId === raceData.custId,
 	);
 
 	// If driver not found in results, return default level

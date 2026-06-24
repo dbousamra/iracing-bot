@@ -23,6 +23,9 @@ import type {
 
 const logger = pino({
 	level: "info",
+	serializers: {
+		error: pino.stdSerializers.err,
+	},
 });
 
 export function run<A>(fn: () => A): A {

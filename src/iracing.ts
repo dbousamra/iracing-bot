@@ -129,14 +129,30 @@ export const getLatestRace = async (
 	const color = iratingChange > 0 ? 0x00ff00 : 0xff0000;
 	const split = `${sessionSplit + 1} / ${results.session_splits.length}`;
 
-	// Calculate Michael's bottle-meter
-	const michaelsBottleMeter = calculateMichaelsBottleMeter({
-		finishPos,
-		oldiRating: oldIrating,
-		allDriversData,
-		incidents,
-		laps,
-	});
+	// Calculate Michael's bottle-meter. This must not abort getLatestRace: it's
+	// called for every customer before we know whether the race is a team race
+	// (where the driver lives in nested driver_results, not allDriversData, so
+	// the lookup can't find them) or simply has too few classified drivers. In
+	// those cases fall back to a neutral meter rather than throwing — the
+	// individual embed is discarded for team races, and a single odd race
+	// shouldn't skip the customer entirely.
+	let michaelsBottleMeter: ReturnType<typeof calculateMichaelsBottleMeter>;
+	try {
+		michaelsBottleMeter = calculateMichaelsBottleMeter({
+			custId: customerId,
+			finishPos,
+			allDriversData,
+			incidents,
+			laps,
+		});
+	} catch {
+		michaelsBottleMeter = {
+			level: "no-bottleo",
+			levelNumber: 2,
+			emoji: "🟢",
+			explanation: "Bottle-meter unavailable for this race.",
+		};
+	}
 
 	return {
 		driverName,
@@ -691,14 +707,11 @@ export const getBottleLeaderboard = async (
 
 						try {
 							return calculateMichaelsBottleMeter({
+								custId: driverResult.cust_id ?? 0,
 								finishPos:
 									driverResult.finish_position_in_class ??
 									driverResult.finish_position ??
 									0,
-								oldiRating:
-									driverResult.oldi_rating < 0
-										? 0
-										: driverResult.oldi_rating,
 								allDriversData,
 								incidents: driverResult.incidents,
 								laps: driverResult.laps_complete,

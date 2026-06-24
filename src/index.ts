@@ -5,6 +5,19 @@ import { Db } from "./db";
 import { IRacingClient } from "./iracing-client";
 import { log, pollLatestRaces, run } from "./util";
 
+// Keep the process alive on unexpected errors. Without these, a single
+// unhandled promise rejection (e.g. a transient iRacing/Discord/DB failure
+// outside an existing try/catch) crashes Node. Fly's restart policy is
+// `on-failure` with `max_retries: 10`, so a handful of such crashes over a
+// day or two exhausts the retries and leaves the machine permanently dead.
+process.on("unhandledRejection", (reason) => {
+	log("Unhandled promise rejection", { error: reason });
+});
+
+process.on("uncaughtException", (error) => {
+	log("Uncaught exception", { error });
+});
+
 run(async () => {
 	const db = new Db(config.DB_PATH);
 	await db.init();
@@ -28,8 +41,15 @@ run(async () => {
 	const commands = getCommands(iRacingClient, db);
 
 	const poll = async () => {
-		// Get all configured guilds
-		const guildConfigs = await db.getAllGuildConfigs();
+		// Get all configured guilds. Guard the whole cycle: this runs from
+		// setInterval, so any rejection here would otherwise be unhandled.
+		let guildConfigs: Awaited<ReturnType<typeof db.getAllGuildConfigs>>;
+		try {
+			guildConfigs = await db.getAllGuildConfigs();
+		} catch (error) {
+			log("Error loading guild configs during poll", { error });
+			return;
+		}
 
 		for (const guildConfig of guildConfigs) {
 			// Skip incomplete configurations
@@ -58,6 +78,17 @@ run(async () => {
 			}
 		}
 	};
+
+	// discord.js emits 'error'/'shardError' on websocket/gateway problems.
+	// An 'error' event with no listener is rethrown by Node and crashes the
+	// process, so always keep listeners attached.
+	discordClient.on("error", (error) => {
+		log("Discord client error", { error });
+	});
+
+	discordClient.on("shardError", (error) => {
+		log("Discord shard error", { error });
+	});
 
 	discordClient.login(config.DISCORD_TOKEN);
 

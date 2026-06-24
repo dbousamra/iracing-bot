@@ -8,6 +8,9 @@ primary_region = 'syd'
 
 [build]
 
+[[restart]]
+  policy = 'always'
+
 [[mounts]]
 source = 'iracing_bot_data'
 destination = '/data'
