@@ -509,9 +509,18 @@ export const createDriverComparisonEmbed = (options: {
 	seasonYear: number;
 	seasonQuarter: number;
 	licenseCategory: string;
+	// When present, the comparison covers only races both drivers ran, and a
+	// head-to-head finishing record is shown.
+	headToHead?: { aheadA: number; aheadB: number };
 }) => {
-	const { driverA, driverB, seasonYear, seasonQuarter, licenseCategory } =
-		options;
+	const {
+		driverA,
+		driverB,
+		seasonYear,
+		seasonQuarter,
+		licenseCategory,
+		headToHead,
+	} = options;
 
 	const rows: ComparisonRow[] = [
 		{
@@ -582,14 +591,31 @@ export const createDriverComparisonEmbed = (options: {
 		},
 	];
 
-	return buildComparisonEmbed({
+	const subtitle = headToHead
+		? `${seasonYear} Season ${seasonQuarter} • ${licenseCategory} • Shared races only`
+		: `${seasonYear} Season ${seasonQuarter} • ${licenseCategory}`;
+
+	const embed = buildComparisonEmbed({
 		nameA: driverA.customerName,
 		nameB: driverB.customerName,
-		subtitle: `${seasonYear} Season ${seasonQuarter} • ${licenseCategory}`,
+		subtitle,
 		rows,
-	}).setFooter({
-		text: "Data cached for 24 hours. Use refresh:true to force update.",
 	});
+
+	if (headToHead) {
+		// Direct finishing record across the shared races (ties omitted).
+		embed.addFields({
+			name: "🤝 • Head-to-Head (finishing position)",
+			value: `Finished ahead » **${driverA.customerName}** \`${headToHead.aheadA}\` — \`${headToHead.aheadB}\` **${driverB.customerName}**`,
+			inline: false,
+		});
+	} else {
+		embed.setFooter({
+			text: "Data cached for 24 hours. Use refresh:true to force update.",
+		});
+	}
+
+	return embed;
 };
 
 export const createCareerComparisonEmbed = (options: {

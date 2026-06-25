@@ -11,6 +11,7 @@ import {
 	getBottleLeaderboard,
 	getCareerCategoryStats,
 	getCareerStats,
+	getHeadToHeadComparison,
 	getLatestRace,
 	getSeasonLeaderboard,
 	getTeamRaceData,
@@ -346,6 +347,14 @@ export const compareDrivers = (
 		)
 		.addBooleanOption((option) =>
 			option
+				.setName("same-races")
+				.setDescription(
+					"Only compare races both drivers ran, head-to-head (season only)",
+				)
+				.setRequired(false),
+		)
+		.addBooleanOption((option) =>
+			option
 				.setName("refresh")
 				.setDescription(
 					"Force refresh data from iRacing (ignores cache, season only)",
@@ -363,7 +372,18 @@ export const compareDrivers = (
 		const category = interaction.options.getString("category", true);
 		const year = interaction.options.getInteger("year");
 		const quarter = interaction.options.getInteger("quarter");
+		const sameRacesOnly = interaction.options.getBoolean("same-races") ?? false;
 		const forceRefresh = interaction.options.getBoolean("refresh") ?? false;
+
+		// Head-to-head needs per-race data, which only the season path provides.
+		if (sameRacesOnly && (year === null || quarter === null)) {
+			await interaction.reply({
+				content:
+					"`same-races` only works with a specific season — provide both `year` and `quarter`.",
+				ephemeral: true,
+			});
+			return;
+		}
 
 		// year + quarter are all-or-nothing: both present = season comparison,
 		// both absent = all-time career comparison.
@@ -462,6 +482,42 @@ export const compareDrivers = (
 					driverA: careerA,
 					driverB: careerB,
 					licenseCategory: category,
+				});
+
+				await interaction.editReply({ embeds: [embed] });
+				return;
+			}
+
+			if (sameRacesOnly) {
+				// Head-to-head: compare only the races both drivers ran.
+				const h2h = await getHeadToHeadComparison(iRacingClient, {
+					seasonYear: year,
+					seasonQuarter: quarter,
+					licenseCategory: category,
+					driverA: {
+						customerId: driverOne.cust_id,
+						customerName: driverOne.display_name,
+					},
+					driverB: {
+						customerId: driverTwo.cust_id,
+						customerName: driverTwo.display_name,
+					},
+				});
+
+				if (!h2h) {
+					await interaction.editReply({
+						content: `${driverOne.display_name} and ${driverTwo.display_name} share no ${category} races in ${year} Q${quarter}.`,
+					});
+					return;
+				}
+
+				const embed = createDriverComparisonEmbed({
+					driverA: h2h.statsA,
+					driverB: h2h.statsB,
+					seasonYear: year,
+					seasonQuarter: quarter,
+					licenseCategory: category,
+					headToHead: { aheadA: h2h.aheadA, aheadB: h2h.aheadB },
 				});
 
 				await interaction.editReply({ embeds: [embed] });

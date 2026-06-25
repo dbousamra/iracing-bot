@@ -677,6 +677,151 @@ export const getSeasonLeaderboard = async (
 	return sortedStats;
 };
 
+export type HeadToHeadComparison = {
+	sharedRaces: number;
+	statsA: DriverStats;
+	statsB: DriverStats;
+	// Number of shared races in which each driver finished ahead of the other.
+	aheadA: number;
+	aheadB: number;
+};
+
+// Compare two drivers using ONLY the races they both ran in a given
+// season/quarter/category. Returns null if they share no races.
+export const getHeadToHeadComparison = async (
+	iRacingClient: IRacingClient,
+	options: {
+		seasonYear: number;
+		seasonQuarter: number;
+		licenseCategory: string;
+		driverA: { customerId: number; customerName: string };
+		driverB: { customerId: number; customerName: string };
+	},
+): Promise<HeadToHeadComparison | null> => {
+	const { seasonYear, seasonQuarter, licenseCategory, driverA, driverB } =
+		options;
+
+	const fetchRaces = async (customerId: number) => {
+		const series = await iRacingClient.searchSeries({
+			cust_id: customerId.toString(),
+			season_year: seasonYear.toString(),
+			season_quarter: seasonQuarter.toString(),
+			official_only: "true",
+			event_types: "5",
+		});
+		return series.filter((race) => race.license_category === licenseCategory);
+	};
+
+	const [racesA, racesB] = await Promise.all([
+		fetchRaces(driverA.customerId),
+		fetchRaces(driverB.customerId),
+	]);
+
+	// Find the subsessions both drivers ran, oldest first.
+	const idsB = new Set(racesB.map((race) => race.subsession_id));
+	const sharedSubsessions = racesA
+		.filter((race) => idsB.has(race.subsession_id))
+		.sort(
+			(a, b) =>
+				new Date(a.start_time).getTime() - new Date(b.start_time).getTime(),
+		);
+
+	if (sharedSubsessions.length === 0) {
+		return null;
+	}
+
+	// Fetch each shared subsession once and pull both drivers' RACE results.
+	const perRace = compact(
+		await map(
+			sharedSubsessions,
+			async (race) => {
+				const subsessionResults = await iRacingClient.getResults({
+					subsession_id: race.subsession_id,
+				});
+
+				const raceSession = subsessionResults.session_results.find(
+					(session) => session.simsession_name === "RACE",
+				);
+
+				const resultA = raceSession?.results.find(
+					(result) =>
+						result.cust_id?.toString() === driverA.customerId.toString(),
+				);
+				const resultB = raceSession?.results.find(
+					(result) =>
+						result.cust_id?.toString() === driverB.customerId.toString(),
+				);
+
+				// Only count races where BOTH drivers have a race result.
+				if (!resultA || !resultB) {
+					return undefined;
+				}
+
+				return { subsessionResults, resultA, resultB };
+			},
+			{ concurrency: 8 },
+		),
+	);
+
+	if (perRace.length === 0) {
+		return null;
+	}
+
+	// Tally who finished ahead (in class) across the shared races.
+	let aheadA = 0;
+	let aheadB = 0;
+	for (const { resultA, resultB } of perRace) {
+		const posA = resultA.finish_position_in_class ?? resultA.finish_position;
+		const posB = resultB.finish_position_in_class ?? resultB.finish_position;
+		if (posA < posB) {
+			aheadA++;
+		} else if (posB < posA) {
+			aheadB++;
+		}
+	}
+
+	const statsA = calculateStats(
+		perRace.map(({ subsessionResults, resultA }) => ({
+			subsessionResults,
+			driverResult: resultA,
+		})),
+	);
+	const statsB = calculateStats(
+		perRace.map(({ subsessionResults, resultB }) => ({
+			subsessionResults,
+			driverResult: resultB,
+		})),
+	);
+
+	const toDriverStats = (
+		driver: { customerId: number; customerName: string },
+		stats: ReturnType<typeof calculateStats>,
+	): DriverStats => ({
+		customerId: driver.customerId,
+		customerName: driver.customerName,
+		totalRaces: stats.totalRaces,
+		totalWins: stats.totalWins,
+		startingIrating: stats.startingIrating,
+		endingIrating: stats.endingIrating,
+		iratingGain: stats.iratingGain,
+		startingSr: stats.startingSr,
+		endingSr: stats.endingSr,
+		srGain: stats.srGain,
+		averageStartPosition: stats.averageStartPosition,
+		averageFinishPosition: stats.averageFinishPosition,
+		averageIncidents: stats.averageIncidents,
+		avgRacesPerDay: stats.avgRacesPerDay,
+	});
+
+	return {
+		sharedRaces: perRace.length,
+		statsA: toDriverStats(driverA, statsA),
+		statsB: toDriverStats(driverB, statsB),
+		aheadA,
+		aheadB,
+	};
+};
+
 export const getBottleLeaderboard = async (
 	iRacingClient: IRacingClient,
 	db: Db,
