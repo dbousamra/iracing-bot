@@ -731,6 +731,16 @@ export class IRacingClient {
 	}
 
 	/**
+	 * Public passthrough for the HTTP proxy. `endpoint` is everything after
+	 * `https://members-ng.iracing.com/data`, e.g.
+	 * `/stats/member_recent_races?cust_id=123`. Reuses all auth, refresh, and
+	 * S3-link/chunk following from `request()`.
+	 */
+	async proxy(endpoint: string): Promise<unknown> {
+		return this.request<unknown>(endpoint);
+	}
+
+	/**
 	 * Get member profile
 	 */
 	async getMemberProfile(options: { cust_id: number }): Promise<MemberProfile> {

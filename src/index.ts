@@ -3,6 +3,7 @@ import { getCommands } from "./commands";
 import { config } from "./config";
 import { Db } from "./db";
 import { IRacingClient } from "./iracing-client";
+import { startProxyServer } from "./server";
 import { log, pollLatestRaces, run } from "./util";
 
 // Keep the process alive on unexpected errors. Without these, a single
@@ -29,6 +30,10 @@ run(async () => {
 		clientSecret: config.IRACING_CLIENT_SECRET,
 	});
 	await iRacingClient.authenticate();
+
+	// Expose the authenticated iRacing client over HTTP so friends without their
+	// own iRacing credentials can query the Data API through the shared secret.
+	startProxyServer(iRacingClient);
 
 	const discordClient = new Client({
 		intents: [

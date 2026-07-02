@@ -37,6 +37,15 @@ export const config = run(() => {
 		throw new Error("DB_PATH is not set");
 	}
 
+	// Shared secret that friends must present to use the HTTP proxy. Required so
+	// an open proxy in front of Dom's iRacing account can never run by accident.
+	const PROXY_API_KEY = process.env.PROXY_API_KEY;
+	if (!PROXY_API_KEY) {
+		throw new Error("PROXY_API_KEY is not set");
+	}
+
+	const PORT = Number.parseInt(process.env.PORT ?? "8080");
+
 	const POLL_INTERVAL = Number.parseInt(
 		process.env.POLL_INTERVAL ?? (60 * 1000 * 5).toString(),
 	);
@@ -49,6 +58,8 @@ export const config = run(() => {
 		IRACING_CLIENT_ID,
 		IRACING_CLIENT_SECRET,
 		DB_PATH,
+		PROXY_API_KEY,
+		PORT,
 		POLL_INTERVAL,
 	};
 });
