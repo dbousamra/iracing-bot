@@ -537,6 +537,12 @@ export class IRacingClient {
 	private refreshTokenExpiresAt: number | null = null;
 	private client: AxiosInstance;
 	private options: IRacingClientOptions;
+	// De-dupes concurrent token acquisition. Without this, a burst of requests
+	// (a poll cycle over many drivers, or proxy traffic) that all see an expired
+	// access token each fire their own refresh with the SAME refresh token.
+	// iRacing treats that parallel reuse as refresh-token replay and revokes the
+	// whole token family, wedging the client. Only one refresh/auth runs at a time.
+	private authPromise: Promise<void> | null = null;
 
 	constructor(options: IRacingClientOptions) {
 		this.options = options;
@@ -556,41 +562,78 @@ export class IRacingClient {
 		return hash.digest("base64");
 	}
 
+	/** True when the access token is present and not within 60s of expiring. */
+	private hasValidAccessToken(): boolean {
+		return (
+			!!this.accessToken &&
+			!!this.tokenExpiresAt &&
+			Date.now() < this.tokenExpiresAt - 60000
+		);
+	}
+
+	private clearTokens(): void {
+		this.accessToken = null;
+		this.refreshToken = null;
+		this.tokenExpiresAt = null;
+		this.refreshTokenExpiresAt = null;
+	}
+
 	/**
-	 * Get access token, refreshing if necessary
+	 * Ensure a valid access token, refreshing or re-authenticating if necessary.
+	 * Concurrent callers share a single in-flight acquisition so we never fire
+	 * parallel token requests (which triggers iRacing's replay revocation).
 	 */
 	private async ensureAuthenticated(): Promise<void> {
-		const now = Date.now();
-
-		// Check if we have a valid access token
-		if (
-			this.accessToken &&
-			this.tokenExpiresAt &&
-			now < this.tokenExpiresAt - 60000
-		) {
-			const timeUntilExpiry = Math.floor(
-				(this.tokenExpiresAt - now) / 1000 / 60,
-			);
+		// Fast path: token still good, no coordination needed.
+		if (this.hasValidAccessToken()) {
 			return;
 		}
 
-		// Check if we can refresh the token
-		if (
+		// Coalesce: the first caller creates the acquisition promise; everyone
+		// else awaits the same one. Cleared on completion so the next expiry
+		// can start a fresh acquisition.
+		if (!this.authPromise) {
+			this.authPromise = this.acquireToken().finally(() => {
+				this.authPromise = null;
+			});
+		}
+		await this.authPromise;
+	}
+
+	/** Acquire a fresh access token via refresh, falling back to full re-auth. */
+	private async acquireToken(): Promise<void> {
+		// Re-check under the lock: a previous acquisition we queued behind may
+		// have already produced a valid token.
+		if (this.hasValidAccessToken()) {
+			return;
+		}
+
+		const now = Date.now();
+		const canRefresh =
 			this.refreshToken &&
 			this.refreshTokenExpiresAt &&
-			now < this.refreshTokenExpiresAt - 60000
-		) {
-			log("Access token expired, using refresh token");
-			await this.refreshAccessToken();
-			return;
-		}
+			now < this.refreshTokenExpiresAt - 60000;
 
-		// Need to authenticate from scratch
-		if (this.refreshToken) {
+		if (canRefresh) {
+			try {
+				log("Access token expired, using refresh token");
+				await this.refreshAccessToken();
+				return;
+			} catch (error) {
+				// iRacing can revoke a refresh token before its nominal expiry
+				// (rotation / replay detection). Don't get stuck retrying a dead
+				// token forever — drop it and authenticate from scratch.
+				log("Refresh token rejected, authenticating from scratch", {
+					error,
+				});
+				this.clearTokens();
+			}
+		} else if (this.refreshToken) {
 			log("Refresh token expired, authenticating from scratch");
 		} else {
 			log("No tokens available, authenticating from scratch");
 		}
+
 		await this.authenticate();
 	}
 
