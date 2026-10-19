@@ -530,6 +530,12 @@ export type IRacingClientOptions = {
 	clientSecret: string;
 };
 
+// Drivers who've asked not to appear anywhere in the bot. Every roster lookup
+// goes through getTeam, so filtering here hides them from all commands + posts.
+const HIDDEN_CUSTOMER_IDS = [
+	712812, // Luke Hay
+];
+
 export class IRacingClient {
 	private accessToken: string | null = null;
 	private refreshToken: string | null = null;
@@ -881,9 +887,13 @@ export class IRacingClient {
 			params.append("include_licenses", options.include_licenses.toString());
 		}
 
-		return this.request<TeamGetResponse>(
+		const team = await this.request<TeamGetResponse>(
 			`/team/get?${params.toString()}`,
 		);
+		const roster = team.roster.filter(
+			(m) => !HIDDEN_CUSTOMER_IDS.includes(m.cust_id),
+		);
+		return { ...team, roster, roster_count: roster.length };
 	}
 
 	/**
