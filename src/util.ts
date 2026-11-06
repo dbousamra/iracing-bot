@@ -118,9 +118,13 @@ const catastrophicImages = [
 	"https://i.postimg.cc/JnSQscrM/792763700-1390710113189189-4154878671650087959-n.png",
 ];
 
+const bradburyImages = [
+	"https://i.postimg.cc/ncQshmRm/ermhwjjb0msxdtfwewja.jpg",
+	"https://i.postimg.cc/yYSSthdx/890669308-1897316878095858-5015546690262811352-n.jpg",
+];
+
 const getBottleMeterImage = (level: MichaelsBottleLevel): string | null => {
-	if (level === "bradbury")
-		return "https://i.postimg.cc/ncQshmRm/ermhwjjb0msxdtfwewja.jpg";
+	if (level === "bradbury") return pickRandom(bradburyImages);
 	if (level === "dnf")
 		return "https://i.postimg.cc/BbMQ5Hbx/Clean-Shot-2026-06-03-at-21-23-07-2x.png";
 	if (level === "first-lap-disaster")
