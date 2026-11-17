@@ -100,7 +100,7 @@ describe("buildTeamRaceEmbed", () => {
 	it("lists each driver on one line", () => {
 		const embed = buildTeamRaceEmbed(teamRace, () => null).toJSON();
 		expect(embed.fields?.find((f) => f.name === "Drivers")?.value).toBe(
-			"**Alex** · 60 laps · 2x · 🟢 +40 iR · 🟢 +0.10 SR\n**Sam** · 60 laps · 4x · 🔴 −10 iR · 🔴 −0.05 SR",
+			"**Alex** · 60 laps · 2x · 🟢 **+40** iR · 🟢 **+0.10** SR\n**Sam** · 60 laps · 4x · 🔴 **−10** iR · 🔴 **−0.05** SR",
 		);
 	});
 });
@@ -216,7 +216,7 @@ describe("buildSeasonLeaderboardEmbed", () => {
 
 	it("calls out the best SR gain", () => {
 		expect(embed().fields?.find((f) => f.name === "Best SR gain")?.value).toBe(
-			"**Sam** 🟢 +0.90",
+			"**Sam** 🟢 **+0.90**",
 		);
 	});
 

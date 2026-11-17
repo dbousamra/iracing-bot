@@ -55,9 +55,10 @@ export const signed = (n: number, dp = 0) => {
 };
 
 /** "🟢 +12", "🔴 −0.13" or "⚪ ±0". */
+/** "🟢 **+12**", "🔴 **−0.13**" or "⚪ **±0**". The change is bold so it reads at a glance. */
 export const trend = (n: number, dp = 0) => {
-	if (isZero(n, dp)) return `⚪ ${signed(n, dp)}`;
-	return `${n > 0 ? "🟢" : "🔴"} ${signed(n, dp)}`;
+	if (isZero(n, dp)) return `⚪ **${signed(n, dp)}**`;
+	return `${n > 0 ? "🟢" : "🔴"} **${signed(n, dp)}**`;
 };
 
 /** Places gained or lost from start to finish. */
