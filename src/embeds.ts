@@ -182,13 +182,13 @@ export const buildSeasonLeaderboardEmbed = (
 
 	const lines = leaderboard.map(
 		(e, i) =>
-			`${rankBadge(i + 1)} **${e.customerName}** · **${e.endingIrating}** iR ${trend(e.iratingGain)} · **${e.endingSr.toFixed(2)}** SR ${trend(e.srGain, 2)} · ${plural(e.totalRaces, "race")}`,
+			// Race counts are left out so each driver fits on one line on phones.
+			`${rankBadge(i + 1)} **${e.customerName}** · **${e.endingIrating}** iR ${trend(e.iratingGain)} · **${e.endingSr.toFixed(2)}** SR ${trend(e.srGain, 2)}`,
 	);
 
 	const totalRaces = leaderboard.reduce((acc, e) => acc + e.totalRaces, 0);
-	const topMover = [...leaderboard].sort(
-		(a, b) => b.iratingGain - a.iratingGain,
-	)[0];
+	// The list is already ranked by iRating gain, so call out safety instead.
+	const bestSr = [...leaderboard].sort((a, b) => b.srGain - a.srGain)[0];
 
 	const embed = new EmbedBuilder()
 		.setTitle(`🏆 ${seasonLabel(options)} leaderboard`)
@@ -200,9 +200,9 @@ export const buildSeasonLeaderboardEmbed = (
 			{ name: "Drivers", value: `**${leaderboard.length}**`, inline: true },
 			{ name: "Races", value: `**${totalRaces}**`, inline: true },
 			{
-				name: "Top mover",
-				value: topMover
-					? `**${topMover.customerName}** ${trend(topMover.iratingGain)}`
+				name: "Best SR gain",
+				value: bestSr
+					? `**${bestSr.customerName}** ${trend(bestSr.srGain, 2)}`
 					: "—",
 				inline: true,
 			},
@@ -217,6 +217,9 @@ export const buildSeasonLeaderboardEmbed = (
 // Bottle leaderboard
 // ---------------------------------------------------------------------------
 
+/** Drivers need this many races to be ranked on the bottle leaderboard. */
+export const BOTTLE_MIN_RACES = 5;
+
 export const buildBottleLeaderboardEmbed = (
 	options: SeasonOptions & { leaderboard: BottleLeaderboardEntry[] },
 ): EmbedBuilder => {
@@ -224,10 +227,30 @@ export const buildBottleLeaderboardEmbed = (
 	const pct = (n: number, races: number) =>
 		races > 0 ? `${Math.round((n / races) * 100)}%` : "0%";
 
-	const lines = leaderboard.map((e, i) => {
-		const bradbury = e.bradburyCount ?? 0;
-		return `${rankBadge(i + 1)} **${e.customerName}** · 👑 **${e.worldChampionCount}** (${pct(e.worldChampionCount, e.totalRaces)}) · ⛸️ **${bradbury}** (${pct(bradbury, e.totalRaces)}) · 💥 **${e.catastrophicCount}** (${pct(e.catastrophicCount, e.totalRaces)}) · ${plural(e.totalRaces, "race")}`;
-	});
+	// Small samples would top a percentage ranking (1 hotline in 1 race = 100%),
+	// so only drivers with enough races are ranked; the rest are listed below.
+	const ranked = leaderboard.filter((e) => e.totalRaces >= BOTTLE_MIN_RACES);
+	const unranked = leaderboard.filter((e) => e.totalRaces < BOTTLE_MIN_RACES);
+
+	const counts = (e: BottleLeaderboardEntry) =>
+		`👑 **${e.worldChampionCount}** · ⛸️ **${e.bradburyCount ?? 0}** · 💥 **${e.catastrophicCount}**`;
+
+	const lines = [
+		...ranked.map(
+			(e, i) =>
+				`${rankBadge(i + 1)} **${e.customerName}** · ${counts(e)} · ${pct(e.worldChampionCount, e.totalRaces)} 👑`,
+		),
+		...(unranked.length
+			? [
+					"",
+					`-# Fewer than ${BOTTLE_MIN_RACES} races, not ranked`,
+					...unranked.map(
+						(e) =>
+							`• ${e.customerName} · ${counts(e)} · ${plural(e.totalRaces, "race")}`,
+					),
+				]
+			: []),
+	];
 
 	const sum = (pick: (e: BottleLeaderboardEntry) => number) =>
 		leaderboard.reduce((acc, e) => acc + pick(e), 0);
@@ -238,7 +261,7 @@ export const buildBottleLeaderboardEmbed = (
 		.setColor(COLORS.bottle)
 		.setDescription(
 			[
-				`-# 👑 World Champion Hotline · ⛸️ Bradbury · 💥 Catastrophic · ${plural(totalRaces, "race")} in total`,
+				`-# 👑 World Champion Hotline · ⛸️ Bradbury · 💥 Catastrophic · ranked by 👑 rate · ${plural(totalRaces, "race")} in total`,
 				"",
 				lines.length ? fitLines(lines, 3800) : "No races yet this season.",
 			].join("\n"),

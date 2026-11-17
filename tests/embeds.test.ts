@@ -177,16 +177,15 @@ describe("buildSeasonLeaderboardEmbed", () => {
 		const lines = (embed.description ?? "").split("\n");
 		expect(embed.title).toBe("🏆 2026 S4 · Sports Car leaderboard");
 		expect(lines[0]).toBe(
-			"🥇 **Alex** · **2800** iR 🟢 +120 · **2.50** SR 🟢 +0.50 · 10 races",
+			"🥇 **Alex** · **2800** iR 🟢 +120 · **2.50** SR 🟢 +0.50",
 		);
 		expect(lines[1]).toBe(
-			"🥈 **Sam** · **2100** iR 🔴 −40 · **2.50** SR 🔴 −0.20 · 10 races",
+			"🥈 **Sam** · **2100** iR 🔴 −40 · **2.50** SR 🔴 −0.20",
 		);
 		expect(lines[2]).toContain("🥉 **Jo** · **2100** iR ⚪ ±0");
-		expect(lines[2]).toContain("1 race");
 		expect(lines[3].startsWith("4. **Kim**")).toBe(true);
-		expect(embed.fields?.find((f) => f.name === "Top mover")?.value).toBe(
-			"**Alex** 🟢 +120",
+		expect(embed.fields?.find((f) => f.name === "Best SR gain")?.value).toBe(
+			"**Alex** 🟢 +0.50",
 		);
 	});
 
@@ -200,27 +199,56 @@ describe("buildSeasonLeaderboardEmbed", () => {
 });
 
 describe("buildBottleLeaderboardEmbed", () => {
-	it("shows counts and percentages per driver", () => {
-		const entry: BottleLeaderboardEntry = {
-			customerId: 1,
-			customerName: "Alex",
-			totalRaces: 15,
-			worldChampionCount: 3,
-			bradburyCount: 1,
-			catastrophicCount: 2,
-		};
+	const entry = (
+		o: Partial<BottleLeaderboardEntry>,
+	): BottleLeaderboardEntry => ({
+		customerId: 1,
+		customerName: "Alex",
+		totalRaces: 15,
+		worldChampionCount: 3,
+		bradburyCount: 1,
+		catastrophicCount: 2,
+		...o,
+	});
+
+	it("shows counts and the hotline rate per ranked driver", () => {
 		const embed = buildBottleLeaderboardEmbed({
 			...season,
-			leaderboard: [entry],
+			leaderboard: [entry({})],
 		}).toJSON();
 		expect(embed.description).toContain(
-			"🥇 **Alex** · 👑 **3** (20%) · ⛸️ **1** (7%) · 💥 **2** (13%) · 15 races",
+			"🥇 **Alex** · 👑 **3** · ⛸️ **1** · 💥 **2** · 20% 👑",
 		);
 		expect(embed.fields?.map((f) => f.value)).toEqual([
 			"**3**",
 			"**1**",
 			"**2**",
 		]);
+	});
+
+	it("lists drivers with fewer than 5 races below the ranking", () => {
+		const embed = buildBottleLeaderboardEmbed({
+			...season,
+			leaderboard: [
+				entry({
+					customerName: "Valentin",
+					totalRaces: 1,
+					worldChampionCount: 1,
+				}),
+				entry({ customerName: "Luke", totalRaces: 48, worldChampionCount: 23 }),
+				entry({ customerName: "Matt", totalRaces: 5, worldChampionCount: 1 }),
+			],
+		}).toJSON();
+		const lines = (embed.description ?? "").split("\n");
+		const ranked = lines.filter((l) => /^(🥇|🥈|🥉|\d+\.) /.test(l));
+		expect(ranked.map((l) => l.split(" · ")[0])).toEqual([
+			"🥇 **Luke**",
+			"🥈 **Matt**",
+		]);
+		expect(lines).toContain("-# Fewer than 5 races, not ranked");
+		expect(lines.at(-1)).toBe(
+			"• Valentin · 👑 **1** · ⛸️ **1** · 💥 **2** · 1 race",
+		);
 	});
 });
 
