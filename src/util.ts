@@ -21,6 +21,7 @@ import type {
 	ResultEntry,
 	SessionData,
 } from "./iracing-client";
+import { buildRaceEmbed } from "./race-embed";
 
 const logger = pino({
 	level: "info",
@@ -282,56 +283,8 @@ export const createTeamRaceEmbed = (teamRace: TeamRaceData): EmbedBuilder => {
 	return embed;
 };
 
-export const createRaceEmbed = (race: GetLatestRaceResponse) => {
-	const embed = new EmbedBuilder()
-		.setTitle(`${race.driverName}'s race results`)
-		.setColor(race.color)
-		.addFields(
-			{
-				name: "📋 • __Details__",
-				value: `Series » \`${race.series}\`\nTrack » \`${race.trackName}\`\nCar » \`${race.car?.name}\`\nSOF » \`${race.sof}\`\nSplit » \`${race.split}\`\nClass rank » \`${race.iRatingRank}/${race.entries}\``,
-			},
-			(() => {
-				const medal =
-					race.finishPos === 1
-						? "🥇"
-						: race.finishPos === 2
-							? "🥈"
-							: race.finishPos === 3
-								? "🥉"
-								: null;
-				return {
-					name: medal ? `${medal} • __Podium!__` : "📊 • __Position__",
-					value: `Start » \`${race.startPos}/${race.entries}\`\nFinish » \`${race.finishPos}/${race.entries}\`${medal ? ` ${medal}` : ""}`,
-				};
-			})(),
-			{
-				name: "📉 • __Statistics__",
-				value: `Laps » \`${race.laps}\`\nIncidents » \`${race.incidents}\`\nAverage lap » \`${race.averageLapTime}\`\nBest race lap » \`${race.bestLapTime}\`\nQuali lap » \`${race.qualifyingTime}\``,
-			},
-			{
-				name: `${race.michaelsBottleMeter.emoji} • Bottle-Meter`,
-				value: `${race.michaelsBottleMeter.level.toUpperCase()}\n\n${race.michaelsBottleMeter.explanation}`,
-				inline: false,
-			},
-			{
-				name: "🏆 • __Ratings__",
-				value: `iRating » \`${race.newIrating}\` **(${race.iratingChange})**\nSafety » \`${race.newSubLevel}\` **(${race.subLevelChange})**`,
-			},
-			{
-				name: "🔗 • Link",
-				value: `[View on iRacing.com](https://members-ng.iracing.com/web/racing/results-stats/results?subsessionid=${race.race.subsession_id})`,
-			},
-		)
-		.setTimestamp(new Date(race.race.session_start_time));
-
-	const bottleImage = getBottleMeterImage(race.michaelsBottleMeter.level);
-	if (bottleImage) {
-		embed.setImage(bottleImage);
-	}
-
-	return embed;
-};
+export const createRaceEmbed = (race: GetLatestRaceResponse) =>
+	buildRaceEmbed(race, getBottleMeterImage(race.michaelsBottleMeter.level));
 
 export const createCareerStatsEmbed = (stats: GetCareerStatsResponse) => {
 	// Category breakdown fields
