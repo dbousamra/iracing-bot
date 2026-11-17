@@ -12,8 +12,8 @@ import {
 	COLORS,
 	PODIUM,
 	eventLine,
-	fitLines,
 	levelName,
+	monoTable,
 	plural,
 	rankBadge,
 	resultUrl,
@@ -49,7 +49,7 @@ export const buildTeamRaceEmbed = (
 	const finish = `P${position} / ${teamRace.classEntries}`;
 
 	const description = [
-		`### ${podium ? podium.label : levelName(meter.level)}`,
+		`### 👥 ${teamRace.teamName} · ${finish}`,
 		eventLine(teamRace.series, teamRace.track, teamRace.carClass),
 		`SOF **${teamRace.strengthOfField}** · Overall **P${teamRace.teamPosition} / ${teamRace.totalEntries}**`,
 		// On a podium the bottle-meter leaves the headline, so keep it here.
@@ -66,7 +66,9 @@ export const buildTeamRaceEmbed = (
 
 	const embed = new EmbedBuilder()
 		.setTitle(
-			`${podium ? podium.medal : meter.emoji} 👥 ${teamRace.teamName} · ${finish}`,
+			podium
+				? `${podium.medal} ${position === 1 ? "🏆 " : ""}${podium.label}`
+				: tier,
 		)
 		.setURL(resultUrl(teamRace.subsessionId))
 		.setColor(podium ? podium.color : BOTTLE_LEVEL_COLORS[meter.level])
@@ -175,26 +177,75 @@ type SeasonOptions = {
 const seasonLabel = (o: SeasonOptions) =>
 	`${o.seasonYear} S${o.seasonQuarter} · ${o.licenseCategory}`;
 
+/** Most rows a leaderboard table shows before "…and N more". */
+const TABLE_MAX_ROWS = 40;
+
+const capRows = <T>(rows: T[]): (T | string)[] =>
+	rows.length > TABLE_MAX_ROWS
+		? [
+				...rows.slice(0, TABLE_MAX_ROWS),
+				`…and ${rows.length - TABLE_MAX_ROWS} more`,
+			]
+		: rows;
+
+/** "+993", "−40", "+1k" so iRating changes fit a 4-wide column. */
+const compactSigned = (n: number) =>
+	Math.abs(n) >= 1000
+		? `${n > 0 ? "+" : "-"}${Math.floor(Math.abs(n) / 1000)}k`
+		: n > 0
+			? `+${n}`
+			: n < 0
+				? `-${Math.abs(n)}`
+				: "0";
+
+/** "🥇 **A** · 🥈 **B** · 🥉 **C**" for the rich line above a table. */
+const podiumLine = (names: string[]) =>
+	names
+		.slice(0, 3)
+		.map((name, i) => `${rankBadge(i + 1)} **${name}**`)
+		.join(" · ");
+
 export const buildSeasonLeaderboardEmbed = (
 	options: SeasonOptions & { leaderboard: DriverStats[] },
 ): EmbedBuilder => {
 	const { leaderboard } = options;
 
-	const lines = leaderboard.map(
-		(e, i) =>
-			// Race counts are left out so each driver fits on one line on phones.
-			`${rankBadge(i + 1)} **${e.customerName}** · **${e.endingIrating}** iR ${trend(e.iratingGain)} · **${e.endingSr.toFixed(2)}** SR ${trend(e.srGain, 2)}`,
+	// Names get the width; SR change is left to the "Best SR gain" field so the
+	// table stays within a phone's width.
+	const table = monoTable(
+		[
+			{ header: "#", width: 2, align: "right" },
+			{ header: "Driver", width: 16 },
+			{ header: "iR", width: 4, align: "right" },
+			{ header: "+/-", width: 4, align: "right" },
+			{ header: "SR", width: 4, align: "right" },
+		],
+		capRows(
+			leaderboard.map((e, i) => [
+				`${i + 1}`,
+				e.customerName,
+				`${e.endingIrating}`,
+				compactSigned(e.iratingGain),
+				e.endingSr.toFixed(2),
+			]),
+		),
 	);
 
 	const totalRaces = leaderboard.reduce((acc, e) => acc + e.totalRaces, 0);
 	// The list is already ranked by iRating gain, so call out safety instead.
 	const bestSr = [...leaderboard].sort((a, b) => b.srGain - a.srGain)[0];
 
-	const embed = new EmbedBuilder()
+	return new EmbedBuilder()
 		.setTitle(`🏆 ${seasonLabel(options)} leaderboard`)
 		.setColor(COLORS.leaderboard)
 		.setDescription(
-			lines.length ? fitLines(lines) : "No races yet this season.",
+			leaderboard.length
+				? [
+						podiumLine(leaderboard.map((e) => e.customerName)),
+						"-# Ranked by iRating gain this season",
+						table,
+					].join("\n")
+				: "No races yet this season.",
 		)
 		.addFields(
 			{ name: "Drivers", value: `**${leaderboard.length}**`, inline: true },
@@ -209,8 +260,6 @@ export const buildSeasonLeaderboardEmbed = (
 		)
 		.setFooter({ text: CACHE_FOOTER })
 		.setTimestamp();
-
-	return embed;
 };
 
 // ---------------------------------------------------------------------------
@@ -220,52 +269,106 @@ export const buildSeasonLeaderboardEmbed = (
 /** Drivers need this many races to be ranked on the bottle leaderboard. */
 export const BOTTLE_MIN_RACES = 5;
 
+const catastropheRate = (e: BottleLeaderboardEntry) =>
+	e.totalRaces > 0 ? e.catastrophicCount / e.totalRaces : 0;
+
+/** Top three by a count, e.g. "Sam Millar2 **34** · Luke Hay3 **23**". */
+const topByCount = (
+	entries: BottleLeaderboardEntry[],
+	pick: (e: BottleLeaderboardEntry) => number,
+) => {
+	const top = [...entries]
+		.filter((e) => pick(e) > 0)
+		.sort((a, b) => pick(b) - pick(a) || b.totalRaces - a.totalRaces)
+		.slice(0, 3);
+	return top.length
+		? top.map((e) => `${e.customerName} **${pick(e)}**`).join(" · ")
+		: "none yet";
+};
+
 export const buildBottleLeaderboardEmbed = (
 	options: SeasonOptions & { leaderboard: BottleLeaderboardEntry[] },
 ): EmbedBuilder => {
 	const { leaderboard } = options;
-	const pct = (n: number, races: number) =>
-		races > 0 ? `${Math.round((n / races) * 100)}%` : "0%";
 
-	// Small samples would top a percentage ranking (1 hotline in 1 race = 100%),
-	// so only drivers with enough races are ranked; the rest are listed below.
-	const ranked = leaderboard.filter((e) => e.totalRaces >= BOTTLE_MIN_RACES);
+	// Small samples make rates meaningless (1 hotline in 1 race = 100%), so only
+	// drivers with enough races are ranked; the rest are listed unranked.
+	const ranked = leaderboard
+		.filter((e) => e.totalRaces >= BOTTLE_MIN_RACES)
+		.sort(
+			(a, b) =>
+				(a.avgLevel ?? 8) - (b.avgLevel ?? 8) || b.totalRaces - a.totalRaces,
+		);
 	const unranked = leaderboard.filter((e) => e.totalRaces < BOTTLE_MIN_RACES);
 
-	const counts = (e: BottleLeaderboardEntry) =>
-		`👑 **${e.worldChampionCount}** · ⛸️ **${e.bradburyCount ?? 0}** · 💥 **${e.catastrophicCount}**`;
-
-	const lines = [
-		...ranked.map(
+	// Hall of shame: highest catastrophe rate among ranked drivers.
+	const shame = [...ranked]
+		.filter((e) => e.catastrophicCount > 0)
+		.sort(
+			(a, b) =>
+				catastropheRate(b) - catastropheRate(a) ||
+				b.catastrophicCount - a.catastrophicCount,
+		)
+		.slice(0, 3)
+		.map(
 			(e, i) =>
-				`${rankBadge(i + 1)} **${e.customerName}** · ${counts(e)} · ${pct(e.worldChampionCount, e.totalRaces)} 👑`,
-		),
-		...(unranked.length
-			? [
-					"",
-					`-# Fewer than ${BOTTLE_MIN_RACES} races, not ranked`,
-					...unranked.map(
-						(e) =>
-							`• ${e.customerName} · ${counts(e)} · ${plural(e.totalRaces, "race")}`,
-					),
-				]
-			: []),
+				`${i + 1}. **${e.customerName}** · **${e.catastrophicCount}** 💥 in ${plural(e.totalRaces, "race")} (${Math.round(catastropheRate(e) * 100)}%)`,
+		);
+
+	const row = (e: BottleLeaderboardEntry, rank: string) => [
+		rank,
+		e.customerName,
+		e.avgLevel !== undefined ? e.avgLevel.toFixed(1) : "-",
+		`${e.worldChampionCount}`,
+		`${e.bradburyCount ?? 0}`,
+		`${e.catastrophicCount}`,
+		`${e.totalRaces}`,
 	];
+
+	const table = monoTable(
+		[
+			{ header: "#", width: 2, align: "right" },
+			{ header: "Driver", width: 14 },
+			{ header: "Avg", width: 3, align: "right" },
+			{ header: "W", width: 2, align: "right" },
+			{ header: "B", width: 2, align: "right" },
+			{ header: "C", width: 2, align: "right" },
+			{ header: "Rcs", width: 3, align: "right" },
+		],
+		[
+			...capRows(ranked.map((e, i) => row(e, `${i + 1}`))),
+			...(unranked.length
+				? [
+						null,
+						`Under ${BOTTLE_MIN_RACES} races, not ranked`,
+						...unranked.map((e) => row(e, "-")),
+					]
+				: []),
+		],
+	);
 
 	const sum = (pick: (e: BottleLeaderboardEntry) => number) =>
 		leaderboard.reduce((acc, e) => acc + pick(e), 0);
-	const totalRaces = sum((e) => e.totalRaces);
+
+	const description = leaderboard.length
+		? [
+				"### 💥 Hall of shame",
+				...(shame.length
+					? shame
+					: ["Nobody has bottled it yet this season. 👏"]),
+				"",
+				`👑 **Most Hotlines** · ${topByCount(leaderboard, (e) => e.worldChampionCount)}`,
+				`⛸️ **Bradburys** · ${topByCount(leaderboard, (e) => e.bradburyCount ?? 0)}`,
+				"",
+				`-# Avg = average bottle level, 1 best to 8 worst · W Hotlines · B Bradburys · C Catastrophes · min ${BOTTLE_MIN_RACES} races to rank`,
+				table,
+			].join("\n")
+		: "No races yet this season.";
 
 	return new EmbedBuilder()
 		.setTitle(`🍾 ${seasonLabel(options)} bottle leaderboard`)
 		.setColor(COLORS.bottle)
-		.setDescription(
-			[
-				`-# 👑 World Champion Hotline · ⛸️ Bradbury · 💥 Catastrophic · ranked by 👑 rate · ${plural(totalRaces, "race")} in total`,
-				"",
-				lines.length ? fitLines(lines, 3800) : "No races yet this season.",
-			].join("\n"),
-		)
+		.setDescription(description)
 		.addFields(
 			{
 				name: "👑 Hotlines",
@@ -283,7 +386,12 @@ export const buildBottleLeaderboardEmbed = (
 				inline: true,
 			},
 		)
-		.setFooter({ text: CACHE_FOOTER })
+		.setFooter({
+			text: `${plural(
+				sum((e) => e.totalRaces),
+				"race",
+			)} · ${CACHE_FOOTER}`,
+		})
 		.setTimestamp();
 };
 
