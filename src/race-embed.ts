@@ -117,12 +117,12 @@ export const buildRaceEmbed = (
 		},
 		{
 			name: "iRating",
-			value: `${race.newIrating}\n${trend(race.iratingChange)}`,
+			value: `**${race.newIrating}**\n${trend(race.iratingChange)}`,
 			inline: true,
 		},
 		{
 			name: "Safety",
-			value: `${race.newSubLevel.toFixed(2)}\n${trend(Number(race.subLevelChange), 2)}`,
+			value: `**${race.newSubLevel.toFixed(2)}**\n${trend(Number(race.subLevelChange), 2)}`,
 			inline: true,
 		},
 		{

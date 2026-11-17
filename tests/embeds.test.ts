@@ -175,19 +175,17 @@ describe("buildSeasonLeaderboardEmbed", () => {
 			],
 		}).toJSON();
 
-	it("ranks drivers in lines with medals; values plain, changes bold", () => {
+	it("ranks drivers in lines with medals and bold values", () => {
 		const lines = (embed().description ?? "").split("\n");
 		expect(embed().title).toBe("🏆 2026 S4 · Sports Car leaderboard");
-		expect(lines[0]).toBe("-# Ranked by iRating gain this season");
+		expect(lines[0]).toBe(
+			"🥇 **Alex** · **2800** iR 🟢 **+120** · **2.50** SR 🟢 **+0.50**",
+		);
 		expect(lines[1]).toBe(
-			"🥇 **Alex** · 2800 iR 🟢 **+120** · 2.50 SR 🟢 **+0.50**",
+			"🥈 **Sam** · **2100** iR 🔴 **−40** · **2.50** SR 🟢 **+0.90**",
 		);
-		expect(lines[2]).toBe(
-			"🥈 **Sam** · 2100 iR 🔴 **−40** · 2.50 SR 🟢 **+0.90**",
-		);
-		expect(lines[3]).toContain("🥉 **Jo** · 2100 iR ⚪ **±0**");
-		expect(lines[4].startsWith("4. **Kim**")).toBe(true);
-		expect(embed().description).not.toContain("```");
+		expect(lines[2]).toContain("🥉 **Jo** · **2100** iR ⚪ **±0**");
+		expect(lines[3].startsWith("4. **Kim**")).toBe(true);
 	});
 
 	it("calls out the best SR gain", () => {
@@ -214,7 +212,6 @@ describe("buildBottleLeaderboardEmbed", () => {
 		worldChampionCount: 3,
 		bradburyCount: 0,
 		catastrophicCount: 0,
-		avgLevel: 3,
 		...o,
 	});
 	const embed = () =>
@@ -225,28 +222,24 @@ describe("buildBottleLeaderboardEmbed", () => {
 					customerName: "Valentin Ozhiganov",
 					totalRaces: 1,
 					worldChampionCount: 1,
-					avgLevel: 1,
 				}),
 				entry({
 					customerName: "Sam Millar2",
-					totalRaces: 139,
-					worldChampionCount: 34,
-					catastrophicCount: 2,
-					avgLevel: 2.9,
-				}),
-				entry({
-					customerName: "Timothy Patton3",
-					totalRaces: 18,
-					worldChampionCount: 8,
-					catastrophicCount: 2,
-					avgLevel: 3.1,
-				}),
-				entry({
-					customerName: "Matt Blee",
-					totalRaces: 8,
-					worldChampionCount: 5,
+					totalRaces: 89,
+					worldChampionCount: 17,
 					bradburyCount: 1,
-					avgLevel: 1.9,
+					catastrophicCount: 3,
+				}),
+				entry({
+					customerName: "Luke Hay3",
+					totalRaces: 69,
+					worldChampionCount: 18,
+					catastrophicCount: 4,
+				}),
+				entry({
+					customerName: "Bradley Whittaker",
+					totalRaces: 25,
+					worldChampionCount: 11,
 				}),
 			],
 		}).toJSON();
@@ -255,43 +248,39 @@ describe("buildBottleLeaderboardEmbed", () => {
 		const lines = (embed().description ?? "").split("\n");
 		expect(lines.slice(0, 3)).toEqual([
 			"### 💥 Hall of shame",
-			"1. **Timothy Patton3** · **2** 💥 in 18 races (11%)",
-			"2. **Sam Millar2** · **2** 💥 in 139 races (1%)",
+			"1. **Luke Hay3** · **4** 💥 in 69 races (6%)",
+			"2. **Sam Millar2** · **3** 💥 in 89 races (3%)",
 		]);
 	});
 
-	it("lists hotline and Bradbury leaders by count", () => {
-		const d = embed().description ?? "";
-		expect(d).toContain(
-			"👑 **Most Hotlines** · Sam Millar2 **34** · Timothy Patton3 **8** · Matt Blee **5**",
-		);
-		expect(d).toContain("⛸️ **Bradburys** · Matt Blee **1**");
-	});
-
-	it("ranks by average bottle level in lines, small samples unranked below", () => {
+	it("ranks by hotline rate in lines, small samples unranked below", () => {
 		const lines = (embed().description ?? "").split("\n");
-		const start = lines.indexOf(
-			"-# Ranked by average bottle level (1 best, 8 worst) · min 5 races",
+		const start = lines.findIndex((l) => l.includes("ranked by 👑 rate"));
+		expect(lines[start]).toBe(
+			"-# 👑 World Champion Hotline · ⛸️ Bradbury · 💥 Catastrophic · ranked by 👑 rate · 184 races in total",
 		);
-		expect(lines.slice(start + 1)).toEqual([
-			"🥇 **Matt Blee** · 👑 **5** · ⛸️ **1** · 💥 **0** · avg 1.9",
-			"🥈 **Sam Millar2** · 👑 **34** · ⛸️ **0** · 💥 **2** · avg 2.9",
-			"🥉 **Timothy Patton3** · 👑 **8** · ⛸️ **0** · 💥 **2** · avg 3.1",
+		expect(lines.slice(start + 2)).toEqual([
+			"🥇 **Bradley Whittaker** · 👑 **11** · ⛸️ **0** · 💥 **0** · 44% 👑",
+			"🥈 **Luke Hay3** · 👑 **18** · ⛸️ **0** · 💥 **4** · 26% 👑",
+			"🥉 **Sam Millar2** · 👑 **17** · ⛸️ **1** · 💥 **3** · 19% 👑",
 			"",
 			"-# Fewer than 5 races, not ranked",
 			"• Valentin Ozhiganov · 👑 **1** · ⛸️ **0** · 💥 **0** · 1 race",
 		]);
-		expect(embed().description).not.toContain("```");
+		expect(embed().fields?.map((f) => f.value)).toEqual([
+			"**47**",
+			"**1**",
+			"**7**",
+		]);
 	});
 
 	it("says so when nobody has a catastrophe", () => {
-		const d =
+		expect(
 			buildBottleLeaderboardEmbed({
 				...season,
 				leaderboard: [entry({})],
-			}).toJSON().description ?? "";
-		expect(d).toContain("Nobody has bottled it yet this season. 👏");
-		expect(d).toContain("⛸️ **Bradburys** · none yet");
+			}).toJSON().description,
+		).toContain("Nobody has bottled it yet this season. 👏");
 	});
 });
 
