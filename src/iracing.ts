@@ -126,7 +126,6 @@ export const getLatestRace = async (
 	const car = results.car_classes.find(
 		(c) => c.car_class_id === race.car_class_id,
 	);
-	const color = iratingChange > 0 ? 0x00ff00 : 0xff0000;
 	const split = `${sessionSplit + 1} / ${results.session_splits.length}`;
 
 	// Calculate Michael's bottle-meter. This must not abort getLatestRace: it's
@@ -174,7 +173,6 @@ export const getLatestRace = async (
 		bestLapTime,
 		qualifyingTime,
 		car,
-		color,
 		race,
 		entries,
 		iRatingRank,
