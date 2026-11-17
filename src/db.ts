@@ -8,6 +8,8 @@ export type BottleLeaderboardEntry = {
 	catastrophicCount: number;
 	worldChampionCount: number;
 	bradburyCount: number;
+	/** Mean Bottle-Meter level across the races (1 best, 8 worst). */
+	avgLevel?: number;
 };
 
 export type DriverStats = {
@@ -61,8 +63,7 @@ export class Db {
 			)
 			.get() as { sql: string } | undefined;
 
-		const needsMigration =
-			tableInfo && !tableInfo.sql.includes("guild_id");
+		const needsMigration = tableInfo && !tableInfo.sql.includes("guild_id");
 
 		if (needsMigration) {
 			// Rename old table

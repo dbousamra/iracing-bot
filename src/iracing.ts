@@ -856,7 +856,8 @@ export const getBottleLeaderboard = async (
 		customerIds.map((id) => [customerNames?.[id] ?? id.toString(), id]),
 	);
 
-	const cacheKey = `bottle_${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}_${customerIds.sort().join("_")}`;
+	// v2: entries carry avgLevel; older cached rows lack it.
+	const cacheKey = `bottle_v2_${seasonYear}_${seasonQuarter}_${licenseCategory.replace(/ /g, "_")}_${customerIds.sort().join("_")}`;
 
 	if (!forceRefresh) {
 		const cached = await db.getBottleLeaderboardCache(cacheKey);
@@ -947,7 +948,9 @@ export const getBottleLeaderboard = async (
 			let worldChampionCount = 0;
 			let bradburyCount = 0;
 
+			let levelTotal = 0;
 			for (const result of bottleResults) {
+				levelTotal += result.levelNumber;
 				if (result.level === "catastrophic") catastrophicCount++;
 				if (result.level === "world-champion-hotline") worldChampionCount++;
 				if (result.level === "bradbury") bradburyCount++;
@@ -961,6 +964,7 @@ export const getBottleLeaderboard = async (
 					catastrophicCount,
 					worldChampionCount,
 					bradburyCount,
+					avgLevel: levelTotal / bottleResults.length,
 				});
 			}
 		} catch (error) {
@@ -968,11 +972,8 @@ export const getBottleLeaderboard = async (
 		}
 	}
 
-	// Sort by world champion hotline percentage descending
-	const sorted = entries.sort(
-		(a, b) =>
-			b.worldChampionCount / b.totalRaces - a.worldChampionCount / a.totalRaces,
-	);
+	// Lowest average bottle level first; the embed applies the minimum-races rule.
+	const sorted = entries.sort((a, b) => (a.avgLevel ?? 8) - (b.avgLevel ?? 8));
 
 	await db.setBottleLeaderboardCache(cacheKey, sorted);
 	console.log(`✅ Cached bottle leaderboard data for ${cacheKey}`);
