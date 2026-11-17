@@ -25,5 +25,5 @@ This is a Discord bot that monitors iRacing race results for tracked users and p
 
 - The database only tracks which races have been posted; it doesn't store race data.
 - iRacing API returns S3 links with expiry times; data must be fetched immediately.
-- Race result embed (`src/race-embed.ts`): colour bar is the medal colour on a podium (P1-P3), otherwise the Bottle-Meter level colour. Team race embeds are still green for iRating gains, red for losses.
+- Embeds: race result in `src/race-embed.ts`, all others in `src/embeds.ts`, shared formatting (medals, level colours, 🟢/🔴 trends) in `src/embed-format.ts`. All are pure and unit-tested. Colour bar is the medal colour on a podium (P1-P3), otherwise the Bottle-Meter level colour.
 - The bot defers slash command replies to avoid 3-second timeout on API calls.

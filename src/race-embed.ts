@@ -3,6 +3,18 @@ import type {
 	MichaelsBottleLevel,
 	MichaelsBottleMeterResult,
 } from "./bottle-meter";
+import {
+	BOTTLE_LEVEL_COLORS,
+	PODIUM,
+	eventLine,
+	levelName,
+	placesMoved,
+	plural,
+	resultUrl,
+	trend,
+} from "./embed-format";
+
+export { BOTTLE_LEVEL_COLORS } from "./embed-format";
 
 /**
  * The fields of a race result the embed needs. `GetLatestRaceResponse` fits
@@ -21,6 +33,10 @@ export interface RaceEmbedInput {
 	entries: number;
 	iRatingRank: number;
 	incidents: number;
+	/** Laps the driver completed. */
+	laps: number;
+	/** Race distance for the class (most laps completed by anyone in it). */
+	raceLaps?: number;
 	averageLapTime: string;
 	bestLapTime: string;
 	qualifyingTime: string;
@@ -29,65 +45,38 @@ export interface RaceEmbedInput {
 	newSubLevel: number;
 	subLevelChange: string | number;
 	michaelsBottleMeter: MichaelsBottleMeterResult;
+	/** Latest first, including this race. */
+	recentFinishes?: number[];
 	race: { subsession_id: number; session_start_time: string };
 }
 
-const PODIUM: Record<number, { medal: string; label: string; color: number }> =
-	{
-		1: { medal: "🥇", label: "WIN", color: 0xf1c40f },
-		2: { medal: "🥈", label: "PODIUM", color: 0xc0c7d0 },
-		3: { medal: "🥉", label: "PODIUM", color: 0xcd7f32 },
-	};
+// Levels whose explanation says something the numbers don't (the joke, or why
+// there's no result). For the rest it just repeats the finish and expectation.
+const STORY_LEVELS: MichaelsBottleLevel[] = [
+	"bradbury",
+	"dnf",
+	"first-lap-disaster",
+];
 
-/** Colour bar for non-podium finishes, following each level's own emoji. */
-export const BOTTLE_LEVEL_COLORS: Record<MichaelsBottleLevel, number> = {
-	"world-champion-hotline": 0x57f287,
-	bradbury: 0x57f287,
-	"no-bottleo": 0x3ba55d,
-	"low-moderate": 0xfee75c,
-	high: 0xf0883e,
-	"very-high": 0xe67e22,
-	severe: 0xe74c3c,
-	extreme: 0xed4245,
-	catastrophic: 0xed4245,
-	"first-lap-disaster": 0xed4245,
-	dnf: 0x80848e,
-};
-
-const MINUS = "−";
-
-const levelName = (level: MichaelsBottleLevel) =>
-	level.replace(/-/g, " ").toUpperCase();
-
-const signed = (n: number, dp = 0) => {
-	const abs = Math.abs(n).toFixed(dp);
-	if (Number(abs) === 0) return `±${abs}`;
-	return n > 0 ? `+${abs}` : `${MINUS}${abs}`;
-};
-
-const trend = (n: number, dp = 0) => {
-	if (Number(Math.abs(n).toFixed(dp)) === 0) return `⚪ ${signed(n, dp)}`;
-	return `${n > 0 ? "🟢" : "🔴"} ${signed(n, dp)}`;
-};
-
-const placesMoved = (start: number, finish: number) => {
-	const gained = start - finish;
-	if (gained > 0) return `🟢 ▲${gained}`;
-	if (gained < 0) return `🔴 ▼${-gained}`;
-	return "⚪ ±0";
-};
+export const showExplanation = (meter: MichaelsBottleMeterResult) =>
+	STORY_LEVELS.includes(meter.level) ||
+	!meter.explanation.startsWith("Finished P");
 
 const vsExpected = (expected: number, finish: number) => {
 	const diff = expected - finish;
-	const places = (k: number) => `${k} place${k === 1 ? "" : "s"}`;
-	if (diff > 0) return `**${places(diff)} above expected**`;
-	if (diff < 0) return `**${places(-diff)} below expected**`;
-	return "**right on expected**";
+	if (diff > 0) return `${plural(diff, "place")} above expected`;
+	if (diff < 0) return `${plural(-diff, "place")} below expected`;
+	return "right on expected";
 };
 
-/** "Toyota GR86 Cup by SIMAGIC" -> "Toyota GR86 Cup" */
-const stripSponsor = (series: string) =>
-	series.replace(/\s+(?:by|presented by|powered by)\s+.+$/i, "").trim();
+const formLine = (finishes: number[]) =>
+	finishes
+		.map((p, i) => {
+			const medal = PODIUM[p]?.medal ?? "";
+			const text = `${medal}P${p}`;
+			return i === 0 ? `**${text}**` : text;
+		})
+		.join(" · ");
 
 export const buildRaceEmbed = (
 	race: RaceEmbedInput,
@@ -95,64 +84,78 @@ export const buildRaceEmbed = (
 ): EmbedBuilder => {
 	const podium = PODIUM[race.finishPos];
 	const meter = race.michaelsBottleMeter;
-	const tier = `${meter.emoji} ${levelName(meter.level)}`;
 	const finish = `P${race.finishPos} / ${race.entries}`;
 	const hasExpected = race.iRatingRank > 0;
+	const expectation = hasExpected
+		? ` · ${vsExpected(race.iRatingRank, race.finishPos)}`
+		: "";
 
+	// Who raced and where they finished is what teammates scan for.
 	const title = podium
-		? `${podium.medal} ${podium.label} · ${finish}`
-		: `${tier} · ${finish}`;
+		? `${podium.medal} ${race.driverName} · ${finish}`
+		: `${meter.emoji} ${race.driverName} · ${finish}`;
 
-	const series = stripSponsor(race.series);
-	const carName = race.car?.name;
-	const showCar =
-		!!carName && !series.toLowerCase().includes(carName.toLowerCase());
-	const event = [series, race.trackName, showCar ? carName : null]
-		.filter(Boolean)
-		.join(" · ");
-
-	const verdict = hasExpected
-		? `${vsExpected(race.iRatingRank, race.finishPos)} with **${race.incidents}x**`
-		: `**${race.incidents}x**`;
+	const headline = podium
+		? `### ${race.finishPos === 1 ? "🏆 " : ""}${podium.label}${expectation}`
+		: `### ${levelName(meter.level)}${expectation}`;
 
 	const description = [
-		`### 🏁 ${event}`,
-		`SOF **${race.sof}** · Split **${race.split.replace(/\s/g, "")}** · Avg lap **${race.averageLapTime}**`,
-		"",
-		`Started **P${race.startPos}**${hasExpected ? ` · expected **P${race.iRatingRank}**` : ""} · finished **P${race.finishPos}**`,
-		// On a podium the tier leaves the title, so keep it visible here.
-		podium ? `${tier} · ${verdict}` : verdict,
-		`-# ${meter.explanation}`,
+		headline,
+		eventLine(race.series, race.trackName, race.car?.name),
+		`SOF **${race.sof}** · Split **${race.split.replace(/\s/g, "")}**`,
+		// On a podium the bottle-meter leaves the headline, so keep it here.
+		...(podium
+			? [`-# Bottle-meter: ${meter.emoji} ${levelName(meter.level)}`]
+			: []),
+		...(showExplanation(meter) ? [`-# ${meter.explanation}`] : []),
 	].join("\n");
 
+	const fields = [
+		{
+			name: "Finish",
+			value: `${podium ? `${podium.medal} ` : ""}**P${race.finishPos}** ${placesMoved(race.startPos, race.finishPos)}\nfrom P${race.startPos}${hasExpected ? ` · exp. P${race.iRatingRank}` : ""}`,
+			inline: true,
+		},
+		{
+			name: "iRating",
+			value: `**${race.newIrating}**\n${trend(race.iratingChange)}`,
+			inline: true,
+		},
+		{
+			name: "Safety",
+			value: `**${race.newSubLevel.toFixed(2)}**\n${trend(Number(race.subLevelChange), 2)}`,
+			inline: true,
+		},
+		{
+			name: "Laps",
+			value:
+				race.raceLaps && race.raceLaps > race.laps
+					? `**${race.laps}** / ${race.raceLaps}\n🔴 ${plural(race.raceLaps - race.laps, "lap")} down`
+					: `**${race.laps}**${race.raceLaps ? ` / ${race.raceLaps}` : ""}`,
+			inline: true,
+		},
+		{ name: "Incidents", value: `**${race.incidents}x**`, inline: true },
+		{
+			name: "Lap times",
+			value: `best \`${race.bestLapTime}\`\navg \`${race.averageLapTime}\`\nquali \`${race.qualifyingTime}\``,
+			inline: true,
+		},
+	];
+
+	if (race.recentFinishes && race.recentFinishes.length > 1) {
+		fields.push({
+			name: "Form (latest first)",
+			value: formLine(race.recentFinishes),
+			inline: false,
+		});
+	}
+
 	const embed = new EmbedBuilder()
-		.setAuthor({ name: race.driverName })
 		.setTitle(title)
-		.setURL(
-			`https://members-ng.iracing.com/web/racing/results-stats/results?subsessionid=${race.race.subsession_id}`,
-		)
+		.setURL(resultUrl(race.race.subsession_id))
 		.setColor(podium ? podium.color : BOTTLE_LEVEL_COLORS[meter.level])
 		.setDescription(description)
-		.addFields(
-			{
-				name: "Finish",
-				value: `${podium ? `${podium.medal} ` : ""}**P${race.finishPos}** ${placesMoved(race.startPos, race.finishPos)}`,
-				inline: true,
-			},
-			{
-				name: "iRating",
-				value: `**${race.newIrating}** ${trend(race.iratingChange)}`,
-				inline: true,
-			},
-			{
-				name: "Safety",
-				value: `**${race.newSubLevel.toFixed(2)}** ${trend(Number(race.subLevelChange), 2)}`,
-				inline: true,
-			},
-			{ name: "Incidents", value: `**${race.incidents}x**`, inline: true },
-			{ name: "Best lap", value: `\`${race.bestLapTime}\``, inline: true },
-			{ name: "Quali", value: `\`${race.qualifyingTime}\``, inline: true },
-		)
+		.addFields(fields)
 		.setFooter({ text: "iRacing results" })
 		.setTimestamp(new Date(race.race.session_start_time));
 

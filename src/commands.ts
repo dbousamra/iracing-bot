@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import { config } from "./config";
 import type { Db } from "./db";
+import { buildTeamSetEmbed, buildTeamShowEmbed } from "./embeds";
 import {
 	getBottleLeaderboard,
 	getCareerCategoryStats,
@@ -736,21 +737,7 @@ export const teamSet = (iRacingClient: IRacingClient, db: Db): Command => ({
 			await db.setGuildTeam(interaction.guildId, teamId);
 
 			await interaction.editReply({
-				embeds: [
-					{
-						title: "Team Configuration Updated",
-						description: `Successfully configured team tracking for **${team.team_name}**`,
-						fields: [
-							{ name: "Team ID", value: team.team_id.toString(), inline: true },
-							{
-								name: "Roster Count",
-								value: team.roster_count.toString(),
-								inline: true,
-							},
-						],
-						color: 0x00ff00,
-					},
-				],
+				embeds: [buildTeamSetEmbed(team)],
 			});
 		} catch (err) {
 			console.error("Failed to set team:", err);
@@ -792,41 +779,12 @@ export const teamShow = (iRacingClient: IRacingClient, db: Db): Command => ({
 				team_id: guildConfig.iracingTeamId,
 			});
 
-			// Get first 10 members for preview
-			const rosterPreview = team.roster
-				.slice(0, 10)
-				.map((m) => m.display_name)
-				.join("\n");
-
-			const moreMembers =
-				team.roster_count > 10 ? `\n...and ${team.roster_count - 10} more` : "";
-
 			await interaction.editReply({
 				embeds: [
-					{
-						title: `Team: ${team.team_name}`,
-						fields: [
-							{ name: "Team ID", value: team.team_id.toString(), inline: true },
-							{
-								name: "Roster Count",
-								value: team.roster_count.toString(),
-								inline: true,
-							},
-							{
-								name: "Notification Channel",
-								value: guildConfig.notificationChannelId
-									? `<#${guildConfig.notificationChannelId}>`
-									: "Not set",
-								inline: true,
-							},
-							{
-								name: "Roster Preview",
-								value: rosterPreview + moreMembers,
-								inline: false,
-							},
-						],
-						color: 0x0099ff,
-					},
+					buildTeamShowEmbed({
+						team,
+						notificationChannelId: guildConfig.notificationChannelId,
+					}),
 				],
 			});
 		} catch (err) {
