@@ -90,14 +90,13 @@ export const buildRaceEmbed = (
 		? ` · ${vsExpected(race.iRatingRank, race.finishPos)}`
 		: "";
 
-	// Who raced and where they finished is what teammates scan for.
+	// The verdict sits in the (linked) title; who raced and where they finished
+	// is the big heading, since that's what teammates scan for.
 	const title = podium
-		? `${podium.medal} ${race.driverName} · ${finish}`
-		: `${meter.emoji} ${race.driverName} · ${finish}`;
+		? `${podium.medal} ${race.finishPos === 1 ? "🏆 " : ""}${podium.label}${expectation}`
+		: `${meter.emoji} ${levelName(meter.level)}${expectation}`;
 
-	const headline = podium
-		? `### ${race.finishPos === 1 ? "🏆 " : ""}${podium.label}${expectation}`
-		: `### ${levelName(meter.level)}${expectation}`;
+	const headline = `### ${race.driverName} · ${finish}`;
 
 	const description = [
 		headline,

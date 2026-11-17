@@ -44,16 +44,16 @@ const lines = (embed: ReturnType<typeof build>) =>
 	(embed.description ?? "").split("\n");
 
 describe("buildRaceEmbed", () => {
-	it("leads with the driver and finish, coloured by bottle-meter level", () => {
+	it("puts the verdict in the title, coloured by bottle-meter level", () => {
 		const embed = build();
-		expect(embed.title).toBe("💥🔥💥 Dominic Bou-Samra3 · P16 / 18");
+		expect(embed.title).toBe("💥🔥💥 CATASTROPHIC · 12 places below expected");
 		expect(embed.color).toBe(0xed4245);
 		expect(embed.url).toContain("subsessionid=12345");
 	});
 
-	it("puts the verdict first, then the event", () => {
+	it("makes the driver and finish the big heading, then the event", () => {
 		expect(lines(build()).slice(0, 3)).toEqual([
-			"### CATASTROPHIC · 12 places below expected",
+			"### Dominic Bou-Samra3 · P16 / 18",
 			"🏁 **Toyota GR86 Cup** · Road Atlanta",
 			"SOF **2098** · Split **1/2**",
 		]);
@@ -155,12 +155,10 @@ describe("buildRaceEmbed", () => {
 				explanation: "Finished well.",
 			},
 		});
-		expect(embed.title).toBe(
-			`${medal} Dominic Bou-Samra3 · P${finishPos} / 18`,
+		expect(embed.title).toMatch(
+			new RegExp(`^${medal} (🏆 )?${label} · [0-9]+ places? above expected$`),
 		);
-		expect(lines(embed)[0]).toMatch(
-			new RegExp(`^### (🏆 )?${label} · [0-9]+ places? above expected$`),
-		);
+		expect(lines(embed)[0]).toBe(`### Dominic Bou-Samra3 · P${finishPos} / 18`);
 		expect(embed.color).toBe(color);
 		expect(
 			field(embed, "Finish")?.startsWith(`${medal} **P${finishPos}**`),
@@ -170,13 +168,13 @@ describe("buildRaceEmbed", () => {
 
 	it("still calls out a podium below expectation", () => {
 		const embed = build({ startPos: 1, finishPos: 3, iRatingRank: 1 });
-		expect(lines(embed)[0]).toBe("### PODIUM · 2 places below expected");
+		expect(embed.title).toBe("🥉 PODIUM · 2 places below expected");
 		expect(embed.description).toContain("-# Bottle-meter: 💥🔥💥 CATASTROPHIC");
 	});
 
 	it("leaves out expected position when the iRating rank is unknown", () => {
 		const embed = build({ iRatingRank: 0 });
-		expect(lines(embed)[0]).toBe("### CATASTROPHIC");
+		expect(embed.title).toBe("💥🔥💥 CATASTROPHIC");
 		expect(field(embed, "Finish")).toBe("**P16** 🔴 ▼13\nfrom P3");
 	});
 

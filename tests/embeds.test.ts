@@ -89,10 +89,10 @@ describe("buildTeamRaceEmbed", () => {
 
 	it("leads with team and class finish, podium highlighted", () => {
 		const embed = buildTeamRaceEmbed(teamRace, () => null).toJSON();
-		expect(embed.title).toBe("🥈 👥 EnduroTech · P2 / 4");
+		expect(embed.title).toBe("🥈 PODIUM");
 		expect(embed.color).toBe(0xc0c7d0);
 		const lines = (embed.description ?? "").split("\n");
-		expect(lines[0]).toBe("### PODIUM");
+		expect(lines[0]).toBe("### 👥 EnduroTech · P2 / 4");
 		expect(lines[1]).toBe("🏁 **IMSA Endurance Series** · Sebring · GT3");
 		expect(lines[2]).toBe("SOF **2500** · Overall **P9 / 30**");
 	});

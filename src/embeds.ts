@@ -49,7 +49,7 @@ export const buildTeamRaceEmbed = (
 	const finish = `P${position} / ${teamRace.classEntries}`;
 
 	const description = [
-		`### ${podium ? podium.label : levelName(meter.level)}`,
+		`### 👥 ${teamRace.teamName} · ${finish}`,
 		eventLine(teamRace.series, teamRace.track, teamRace.carClass),
 		`SOF **${teamRace.strengthOfField}** · Overall **P${teamRace.teamPosition} / ${teamRace.totalEntries}**`,
 		// On a podium the bottle-meter leaves the headline, so keep it here.
@@ -66,7 +66,9 @@ export const buildTeamRaceEmbed = (
 
 	const embed = new EmbedBuilder()
 		.setTitle(
-			`${podium ? podium.medal : meter.emoji} 👥 ${teamRace.teamName} · ${finish}`,
+			podium
+				? `${podium.medal} ${position === 1 ? "🏆 " : ""}${podium.label}`
+				: tier,
 		)
 		.setURL(resultUrl(teamRace.subsessionId))
 		.setColor(podium ? podium.color : BOTTLE_LEVEL_COLORS[meter.level])
