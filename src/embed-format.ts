@@ -117,3 +117,17 @@ export const fitLines = (lines: string[], limit = 4000) => {
 	}
 	return out.join("\n");
 };
+
+/** iRacing lap times are in 1/10,000ths of a second; e.g. 1:33.178. */
+export const formatLaptime = (laptime: number): string => {
+	const microseconds = laptime * 100;
+	const totalMilliseconds = Math.floor(microseconds / 1000);
+	const minutes = Math.floor(totalMilliseconds / 60000);
+	const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
+	const milliseconds = totalMilliseconds % 1000;
+	return `${minutes}:${seconds.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
+};
+
+/** iRacing sends -1 (or 0) when there's no lap; show "No time" instead of "-1:-1.0-1". */
+export const formatLapOrNone = (laptime: number | null | undefined): string =>
+	laptime && laptime > 0 ? formatLaptime(laptime) : "No time";

@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
+import { formatLapOrNone } from "../src/embed-format";
 import { type RaceEmbedInput, buildRaceEmbed } from "../src/race-embed";
+
+describe("formatLapOrNone", () => {
+	it("formats a real lap", () => {
+		expect(formatLapOrNone(931780)).toBe("1:33.178");
+	});
+
+	it.each([-1, 0, undefined, null])(
+		"shows No time instead of %s (iRacing's no-lap value)",
+		(value) => {
+			expect(formatLapOrNone(value)).toBe("No time");
+		},
+	);
+});
 
 // The real race that prompted the redesign (Road Atlanta, P3 -> P16).
 const catastrophicRace: RaceEmbedInput = {
@@ -101,8 +115,8 @@ describe("buildRaceEmbed", () => {
 	it("shows key numbers as fields with direction markers", () => {
 		const embed = build();
 		expect(field(embed, "Finish")).toBe("**P16** 🔴 ▼13\nfrom P3 · exp. P4");
-		expect(field(embed, "iRating")).toBe("**2681**\n🔴 **−92**");
-		expect(field(embed, "Safety")).toBe("**2.08**\n🔴 **−0.13**");
+		expect(field(embed, "iRating")).toBe("2681\n🔴 **−92**");
+		expect(field(embed, "Safety")).toBe("2.08\n🔴 **−0.13**");
 		expect(field(embed, "Incidents")).toBe("**10x**");
 		expect(field(embed, "Laps")).toBe("**10** / 10");
 		expect(field(embed, "Lap times")).toBe(
@@ -136,8 +150,8 @@ describe("buildRaceEmbed", () => {
 			subLevelChange: "0.07",
 		});
 		expect(field(embed, "Finish")).toBe("**P5** 🟢 ▲3\nfrom P8 · exp. P4");
-		expect(field(embed, "iRating")).toBe("**2681**\n🟢 **+41**");
-		expect(field(embed, "Safety")).toBe("**2.08**\n🟢 **+0.07**");
+		expect(field(embed, "iRating")).toBe("2681\n🟢 **+41**");
+		expect(field(embed, "Safety")).toBe("2.08\n🟢 **+0.07**");
 	});
 
 	it.each([

@@ -1,5 +1,6 @@
 import { calculateMichaelsBottleMeter } from "./bottle-meter";
 import type { BottleLeaderboardEntry, Db, DriverStats } from "./db";
+import { formatLapOrNone } from "./embed-format";
 import type {
 	DriverResult,
 	IRacingClient,
@@ -8,15 +9,6 @@ import type {
 	SubsessionResults,
 } from "./iracing-client";
 import { compact, map } from "./util";
-
-export const formatLaptime = (laptime: number): string => {
-	const microseconds = laptime * 100;
-	const totalMilliseconds = Math.floor(microseconds / 1000);
-	const minutes = Math.floor(totalMilliseconds / 60000);
-	const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
-	const milliseconds = totalMilliseconds % 1000;
-	return `${minutes}:${seconds.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
-};
 
 export const getDriverResults = <
 	A extends { cust_id?: number; driver_results?: A[] },
@@ -127,11 +119,11 @@ export const getLatestRace = async (
 		laps,
 		...classResults.map((res) => res.laps_complete ?? 0),
 	);
-	const averageLapTime = formatLaptime(raceSessionResult?.average_lap ?? 1);
-	const bestLapTime = formatLaptime(raceSessionResult?.best_lap_time ?? 1);
-	const qualifyingTime = qualiSessionResult?.best_qual_lap_time
-		? formatLaptime(qualiSessionResult.best_qual_lap_time)
-		: "No time";
+	const averageLapTime = formatLapOrNone(raceSessionResult?.average_lap);
+	const bestLapTime = formatLapOrNone(raceSessionResult?.best_lap_time);
+	const qualifyingTime = formatLapOrNone(
+		qualiSessionResult?.best_qual_lap_time,
+	);
 	const car = results.car_classes.find(
 		(c) => c.car_class_id === race.car_class_id,
 	);
