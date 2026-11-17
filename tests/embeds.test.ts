@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BottleLeaderboardEntry, DriverStats } from "../src/db";
-import { TABLE_MAX_WIDTH, fitLines, monoTable } from "../src/embed-format";
+import { fitLines } from "../src/embed-format";
 import {
 	buildBottleLeaderboardEmbed,
 	buildCareerComparisonEmbed,
@@ -163,55 +163,31 @@ describe("buildCareerStatsEmbed", () => {
 	});
 });
 
-// Pulls the code-block table out of an embed description.
-const tableLines = (description = "") => {
-	const m = description.match(/```\n([\s\S]*?)\n```/);
-	return m ? m[1].split("\n") : [];
-};
-
-const expectPhoneSafe = (rows: string[]) => {
-	for (const r of rows) expect(r.length).toBeLessThanOrEqual(TABLE_MAX_WIDTH);
-};
-
 describe("buildSeasonLeaderboardEmbed", () => {
 	const embed = () =>
 		buildSeasonLeaderboardEmbed({
 			...season,
 			leaderboard: [
-				driver({
-					customerName: "Thomaz Hernandes",
-					endingIrating: 3123,
-					iratingGain: 993,
-					srGain: 0.2,
-				}),
+				driver({ customerName: "Alex", endingIrating: 2800, iratingGain: 120 }),
 				driver({ customerName: "Sam", iratingGain: -40, srGain: 0.9 }),
-				driver({
-					customerName: "Aden Lennox-Bradley",
-					endingIrating: 4034,
-					iratingGain: 1137,
-				}),
-				driver({ customerName: "Kim", iratingGain: 0 }),
+				driver({ customerName: "Jo", iratingGain: 0 }),
+				driver({ customerName: "Kim" }),
 			],
 		}).toJSON();
 
-	it("leads with the podium in rich text", () => {
+	it("ranks drivers in lines with medals; values plain, changes bold", () => {
 		const lines = (embed().description ?? "").split("\n");
 		expect(embed().title).toBe("🏆 2026 S4 · Sports Car leaderboard");
-		expect(lines[0]).toBe(
-			"🥇 **Thomaz Hernandes** · 🥈 **Sam** · 🥉 **Aden Lennox-Bradley**",
+		expect(lines[0]).toBe("-# Ranked by iRating gain this season");
+		expect(lines[1]).toBe(
+			"🥇 **Alex** · 2800 iR 🟢 **+120** · 2.50 SR 🟢 **+0.50**",
 		);
-	});
-
-	it("aligns every driver in a phone-width table", () => {
-		const rows = tableLines(embed().description);
-		expect(rows).toEqual([
-			" # Driver             iR  +/-   SR",
-			" 1 Thomaz Hernandes 3123 +993 2.50",
-			" 2 Sam              2100  -40 2.50",
-			" 3 Aden Lennox-Bra… 4034  +1k 2.50",
-			" 4 Kim              2100    0 2.50",
-		]);
-		expectPhoneSafe(rows);
+		expect(lines[2]).toBe(
+			"🥈 **Sam** · 2100 iR 🔴 **−40** · 2.50 SR 🟢 **+0.90**",
+		);
+		expect(lines[3]).toContain("🥉 **Jo** · 2100 iR ⚪ **±0**");
+		expect(lines[4].startsWith("4. **Kim**")).toBe(true);
+		expect(embed().description).not.toContain("```");
 	});
 
 	it("calls out the best SR gain", () => {
@@ -292,18 +268,20 @@ describe("buildBottleLeaderboardEmbed", () => {
 		expect(d).toContain("⛸️ **Bradburys** · Matt Blee **1**");
 	});
 
-	it("ranks by average bottle level, small samples unranked below", () => {
-		const rows = tableLines(embed().description);
-		expect(rows).toEqual([
-			" # Driver         Avg  W  B  C Rcs",
-			" 1 Matt Blee      1.9  5  1  0   8",
-			" 2 Sam Millar2    2.9 34  0  2 139",
-			" 3 Timothy Patto… 3.1  8  0  2  18",
+	it("ranks by average bottle level in lines, small samples unranked below", () => {
+		const lines = (embed().description ?? "").split("\n");
+		const start = lines.indexOf(
+			"-# Ranked by average bottle level (1 best, 8 worst) · min 5 races",
+		);
+		expect(lines.slice(start + 1)).toEqual([
+			"🥇 **Matt Blee** · 👑 **5** · ⛸️ **1** · 💥 **0** · avg 1.9",
+			"🥈 **Sam Millar2** · 👑 **34** · ⛸️ **0** · 💥 **2** · avg 2.9",
+			"🥉 **Timothy Patton3** · 👑 **8** · ⛸️ **0** · 💥 **2** · avg 3.1",
 			"",
-			"Under 5 races, not ranked",
-			" - Valentin Ozhi… 1.0  1  0  0   1",
+			"-# Fewer than 5 races, not ranked",
+			"• Valentin Ozhiganov · 👑 **1** · ⛸️ **0** · 💥 **0** · 1 race",
 		]);
-		expectPhoneSafe(rows);
+		expect(embed().description).not.toContain("```");
 	});
 
 	it("says so when nobody has a catastrophe", () => {
@@ -407,11 +385,5 @@ describe("fitLines", () => {
 		const out = fitLines(lines, 500);
 		expect(out.length).toBeLessThanOrEqual(500);
 		expect(out.split("\n").at(-1)).toMatch(/^-# …and \d+ more$/);
-	});
-});
-
-describe("monoTable", () => {
-	it("refuses tables wider than a phone shows without wrapping", () => {
-		expect(() => monoTable([{ header: "x", width: 40 }], [])).toThrow(/max 34/);
 	});
 });
