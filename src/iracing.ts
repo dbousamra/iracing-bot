@@ -51,6 +51,10 @@ export const getLatestRace = async (
 	});
 
 	const race = recentRaces.races[0];
+	// Latest first, including this race, for the "Form" field.
+	const recentFinishes = recentRaces.races
+		.slice(0, 5)
+		.map((r) => r.finish_position);
 
 	const results = await iRacingClient.getResults({
 		subsession_id: race.subsession_id,
@@ -118,6 +122,11 @@ export const getLatestRace = async (
 	const sof = race.strength_of_field;
 	const trackName = race.track.track_name;
 	const laps = race.laps;
+	// Race distance for the driver's class: the most laps anyone in it completed.
+	const raceLaps = Math.max(
+		laps,
+		...classResults.map((res) => res.laps_complete ?? 0),
+	);
 	const averageLapTime = formatLaptime(raceSessionResult?.average_lap ?? 1);
 	const bestLapTime = formatLaptime(raceSessionResult?.best_lap_time ?? 1);
 	const qualifyingTime = qualiSessionResult?.best_qual_lap_time
@@ -169,6 +178,7 @@ export const getLatestRace = async (
 		sof,
 		trackName,
 		laps,
+		raceLaps,
 		averageLapTime,
 		bestLapTime,
 		qualifyingTime,
@@ -177,6 +187,7 @@ export const getLatestRace = async (
 		entries,
 		iRatingRank,
 		michaelsBottleMeter,
+		recentFinishes,
 	};
 };
 

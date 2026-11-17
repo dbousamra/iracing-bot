@@ -14,6 +14,8 @@ const catastrophicRace: RaceEmbedInput = {
 	entries: 18,
 	iRatingRank: 4,
 	incidents: 10,
+	laps: 10,
+	raceLaps: 10,
 	averageLapTime: "1:40.615",
 	bestLapTime: "1:33.178",
 	qualifyingTime: "1:33.934",
@@ -28,6 +30,7 @@ const catastrophicRace: RaceEmbedInput = {
 		explanation:
 			"Finished P16, 12 places behind expected (P4). Catastrophic race dropping 11+ positions below iRating expectation. 10 incidents - things went very wrong.",
 	},
+	recentFinishes: [16, 2, 4, 7, 5],
 	race: { subsession_id: 12345, session_start_time: "2026-11-16T11:15:00Z" },
 };
 
@@ -37,53 +40,92 @@ const build = (overrides: Partial<RaceEmbedInput> = {}) =>
 const field = (embed: ReturnType<typeof build>, name: string) =>
 	embed.fields?.find((f) => f.name === name)?.value;
 
+const lines = (embed: ReturnType<typeof build>) =>
+	(embed.description ?? "").split("\n");
+
 describe("buildRaceEmbed", () => {
-	it("leads with the bottle-meter verdict and finish for a normal result", () => {
+	it("leads with the driver and finish, coloured by bottle-meter level", () => {
 		const embed = build();
-		expect(embed.title).toBe("💥🔥💥 CATASTROPHIC · P16 / 18");
-		expect(embed.author?.name).toBe("Dominic Bou-Samra3");
+		expect(embed.title).toBe("💥🔥💥 Dominic Bou-Samra3 · P16 / 18");
 		expect(embed.color).toBe(0xed4245);
 		expect(embed.url).toContain("subsessionid=12345");
 	});
 
-	it("puts series and track in a heading, dropping the sponsor and repeated car", () => {
-		const description = build().description ?? "";
-		expect(description.split("\n")[0]).toBe(
-			"### 🏁 Toyota GR86 Cup · Road Atlanta",
-		);
-		expect(description).toContain(
-			"SOF **2098** · Split **1/2** · Avg lap **1:40.615**",
-		);
-		expect(description).toContain(
-			"Started **P3** · expected **P4** · finished **P16**",
-		);
-		expect(description).toContain("**12 places below expected** with **10x**");
+	it("puts the verdict first, then the event", () => {
+		expect(lines(build()).slice(0, 3)).toEqual([
+			"### CATASTROPHIC · 12 places below expected",
+			"🏁 **Toyota GR86 Cup** · Road Atlanta",
+			"SOF **2098** · Split **1/2**",
+		]);
 	});
 
 	it("shows the car when the series name does not include it", () => {
-		const description =
-			build({ series: "Global Mazda MX-5 Fanatec Cup", car: { name: "GT4" } })
-				.description ?? "";
-		expect(description.split("\n")[0]).toBe(
-			"### 🏁 Global Mazda MX-5 Fanatec Cup · Road Atlanta · GT4",
-		);
+		expect(
+			lines(
+				build({ series: "Global Mazda MX-5 Cup", car: { name: "GT4" } }),
+			)[1],
+		).toBe("🏁 **Global Mazda MX-5 Cup** · Road Atlanta · GT4");
 	});
 
-	it("keeps the bottle-meter explanation as subtext", () => {
-		expect(build().description).toContain(
-			"-# Finished P16, 12 places behind expected (P4).",
+	it("drops a car the series already names, and the iRacing prefix", () => {
+		expect(
+			lines(
+				build({
+					series: "iRacing Porsche Cup - Fixed",
+					trackName: "Long Beach Street Circuit",
+					car: { name: "Porsche 911 Cup (992.2)" },
+				}),
+			)[1],
+		).toBe("🏁 **Porsche Cup - Fixed** · Long Beach Street Circuit");
+	});
+
+	it("drops the explanation when it only repeats the numbers", () => {
+		expect(build().description).not.toContain("Finished P16");
+	});
+
+	it("keeps the explanation for story levels like Bradbury", () => {
+		const embed = build({
+			finishPos: 5,
+			michaelsBottleMeter: {
+				level: "bradbury",
+				levelNumber: 1,
+				emoji: "⛸️",
+				explanation: "Finished P5 ... Steven Bradbury special.",
+			},
+		});
+		expect(embed.description).toContain(
+			"-# Finished P5 ... Steven Bradbury special.",
 		);
 	});
 
 	it("shows key numbers as fields with direction markers", () => {
 		const embed = build();
-		expect(field(embed, "Finish")).toBe("**P16** 🔴 ▼13");
-		expect(field(embed, "iRating")).toBe("**2681** 🔴 −92");
-		expect(field(embed, "Safety")).toBe("**2.08** 🔴 −0.13");
+		expect(field(embed, "Finish")).toBe("**P16** 🔴 ▼13\nfrom P3 · exp. P4");
+		expect(field(embed, "iRating")).toBe("**2681**\n🔴 −92");
+		expect(field(embed, "Safety")).toBe("**2.08**\n🔴 −0.13");
 		expect(field(embed, "Incidents")).toBe("**10x**");
-		expect(field(embed, "Best lap")).toBe("`1:33.178`");
-		expect(field(embed, "Quali")).toBe("`1:33.934`");
-		expect(embed.fields?.every((f) => f.inline)).toBe(true);
+		expect(field(embed, "Laps")).toBe("**10** / 10");
+		expect(field(embed, "Lap times")).toBe(
+			"best `1:33.178`\navg `1:40.615`\nquali `1:33.934`",
+		);
+	});
+
+	it("flags laps down when the driver did not finish the distance", () => {
+		expect(field(build({ laps: 7, raceLaps: 10 }), "Laps")).toBe(
+			"**7** / 10\n🔴 3 laps down",
+		);
+	});
+
+	it("shows recent form, latest first, with medals", () => {
+		expect(field(build(), "Form (latest first)")).toBe(
+			"**P16** · 🥈P2 · P4 · P7 · P5",
+		);
+	});
+
+	it("leaves form out when there is no history", () => {
+		expect(field(build({ recentFinishes: [16] }), "Form (latest first)")).toBe(
+			undefined,
+		);
 	});
 
 	it("marks gains in green", () => {
@@ -93,70 +135,49 @@ describe("buildRaceEmbed", () => {
 			iratingChange: 41,
 			subLevelChange: "0.07",
 		});
-		expect(field(embed, "Finish")).toBe("**P5** 🟢 ▲3");
-		expect(field(embed, "iRating")).toBe("**2681** 🟢 +41");
-		expect(field(embed, "Safety")).toBe("**2.08** 🟢 +0.07");
+		expect(field(embed, "Finish")).toBe("**P5** 🟢 ▲3\nfrom P8 · exp. P4");
+		expect(field(embed, "iRating")).toBe("**2681**\n🟢 +41");
+		expect(field(embed, "Safety")).toBe("**2.08**\n🟢 +0.07");
 	});
 
 	it.each([
-		[1, "🥇 WIN · P1 / 18", 0xf1c40f, "🥇"],
-		[2, "🥈 PODIUM · P2 / 18", 0xc0c7d0, "🥈"],
-		[3, "🥉 PODIUM · P3 / 18", 0xcd7f32, "🥉"],
-	])("highlights a P%i podium", (finishPos, title, color, medal) => {
+		[1, "🥇", "WIN", 0xf1c40f],
+		[2, "🥈", "PODIUM", 0xc0c7d0],
+		[3, "🥉", "PODIUM", 0xcd7f32],
+	])("highlights a P%i podium", (finishPos, medal, label, color) => {
 		const embed = build({
+			startPos: 5,
 			finishPos,
 			michaelsBottleMeter: {
 				level: "no-bottleo",
 				levelNumber: 2,
 				emoji: "🟢",
-				explanation: "Clean race.",
+				explanation: "Finished well.",
 			},
 		});
-		expect(embed.title).toBe(title);
+		expect(embed.title).toBe(
+			`${medal} Dominic Bou-Samra3 · P${finishPos} / 18`,
+		);
+		expect(lines(embed)[0]).toMatch(
+			new RegExp(`^### (🏆 )?${label} · [0-9]+ places? above expected$`),
+		);
 		expect(embed.color).toBe(color);
 		expect(
 			field(embed, "Finish")?.startsWith(`${medal} **P${finishPos}**`),
 		).toBe(true);
+		expect(embed.description).toContain("-# Bottle-meter: 🟢 NO BOTTLEO");
 	});
 
-	it("keeps the tier visible on a podium below expectation", () => {
-		const embed = build({
-			startPos: 1,
-			finishPos: 3,
-			iRatingRank: 1,
-			michaelsBottleMeter: {
-				level: "high",
-				levelNumber: 4,
-				emoji: "🟠",
-				explanation: "Dropped from pole.",
-			},
-		});
-		expect(embed.title).toBe("🥉 PODIUM · P3 / 18");
-		expect(embed.description).toContain(
-			"🟠 HIGH · **2 places below expected** with **10x**",
-		);
-	});
-
-	it("colours non-podium results by bottle-meter level", () => {
-		const embed = build({
-			finishPos: 6,
-			michaelsBottleMeter: {
-				level: "low-moderate",
-				levelNumber: 3,
-				emoji: "🟡",
-				explanation: "Meh.",
-			},
-		});
-		expect(embed.title).toBe("🟡 LOW MODERATE · P6 / 18");
-		expect(embed.color).toBe(0xfee75c);
+	it("still calls out a podium below expectation", () => {
+		const embed = build({ startPos: 1, finishPos: 3, iRatingRank: 1 });
+		expect(lines(embed)[0]).toBe("### PODIUM · 2 places below expected");
+		expect(embed.description).toContain("-# Bottle-meter: 💥🔥💥 CATASTROPHIC");
 	});
 
 	it("leaves out expected position when the iRating rank is unknown", () => {
-		const description = build({ iRatingRank: 0 }).description ?? "";
-		expect(description).toContain("Started **P3** · finished **P16**");
-		expect(description).not.toContain("expected **P");
-		expect(description).not.toContain("above expected**");
-		expect(description).not.toContain("below expected**");
+		const embed = build({ iRatingRank: 0 });
+		expect(lines(embed)[0]).toBe("### CATASTROPHIC");
+		expect(field(embed, "Finish")).toBe("**P16** 🔴 ▼13\nfrom P3");
 	});
 
 	it("adds the reaction image when there is one", () => {
